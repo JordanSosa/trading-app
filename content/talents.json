@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "trees": [
+    {
+      "id": "pyromancer",
+      "name": "Pyromancer",
+      "nodes": []
+    },
+    {
+      "id": "frost_warden",
+      "name": "Frost Warden",
+      "nodes": []
+    },
+    {
+      "id": "storm_blade",
+      "name": "Storm Blade",
+      "nodes": []
+    }
+  ]
+}

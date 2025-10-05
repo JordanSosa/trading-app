@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "skills": [
+    {
+      "id": "pyro_firebolt",
+      "name": "Firebolt",
+      "archetype": "pyromancer",
+      "tags": ["fire", "spell"],
+      "cooldown": 1.5,
+      "description": "Launch a bolt of flame that ignites enemies."
+    }
+  ],
+  "passives": [
+    {
+      "id": "pyro_heat_up",
+      "name": "Heat Up",
+      "archetype": "pyromancer",
+      "description": "Every ignite increases fire damage by 1% up to 20%."
+    }
+  ]
+}

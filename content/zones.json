@@ -1,0 +1,12 @@
+[
+  {
+    "id": "zone_t1_embergrove",
+    "displayName": "Embergrove Outskirts",
+    "tier": 1,
+    "modifiers": ["+10% Fire Damage for enemies", "+5% Player XP gains"],
+    "enemyFamily": "Ashlings",
+    "bossId": "boss_cinder_knight",
+    "dropTable": { "catalyst": 0.1, "t1Shard": [1, 2] },
+    "recommendedPower": 10
+  }
+]
