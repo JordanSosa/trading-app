@@ -1,0 +1,10 @@
+[
+  {
+    "id": "base_training_sword",
+    "slot": "weapon",
+    "rarity": "Common",
+    "base": { "min": 4, "max": 6, "type": "sword" },
+    "affixes": [],
+    "reqLevel": 1
+  }
+]
