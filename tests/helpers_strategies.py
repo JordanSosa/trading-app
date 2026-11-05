@@ -49,3 +49,22 @@ class Scripted(Strategy):
 for cls in (SmaStop, Scripted):
     if cls.name not in REGISTRY:
         register(cls)
+
+
+class SmaLongShort(Strategy):
+    """test: +1 above the slow SMA, -1 below (exercises shorts and flips)."""
+    name = "_test_sma_ls"
+    default_params = {"slow": 120}
+
+    @property
+    def warmup_bars(self) -> int:
+        return 200
+
+    def compute(self, df: pd.DataFrame) -> pd.DataFrame:
+        s = ind.sma(df["close"], self.params["slow"])
+        tgt = (df["close"] > s).astype(float) * 2 - 1
+        return pd.DataFrame({"target": tgt.where(s.notna())}, index=df.index)
+
+
+if SmaLongShort.name not in REGISTRY:
+    register(SmaLongShort)

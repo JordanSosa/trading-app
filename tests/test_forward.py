@@ -167,3 +167,24 @@ def test_run_window_changes_are_refused_even_with_accept(candles, scfg, tmp_path
     other = make_cfg("_test_sma_stop", run={"initial_cash": 50_000.0}, data={"sanity_check": False})
     with pytest.raises(StateError, match="initial_cash"):
         tick(other, store, md, now_ms=md.now_ms + H, accept_config_change=True, write_reports=False)
+
+
+@pytest.mark.parametrize("instrument", ["perp", "hybrid"])
+def test_replay_matches_campaign_with_shorts_and_funding(candles, tmp_path, instrument):
+    import numpy as np
+    cfg = make_cfg("_test_sma_ls", run={"instrument": instrument}, risk={"max_short": 1.0},
+                   data={"sanity_check": False})
+    t0 = int(candles.index[0].value // 1_000_000)
+    times = np.arange(t0, t0 + len(candles) * H, 8 * H)
+    rng = np.random.default_rng(5)
+    funding = pd.Series(rng.normal(0.0001, 0.0002, len(times)), index=times)
+    strat = get_strategy("_test_sma_ls")
+    start = candles.index[2400]
+    camp = run_campaigns(candles, strat, cfg, str(start), None, days=30, step_hours=10**6, funding=funding)
+    replay(cfg, candles, start, start + pd.Timedelta(days=32), tmp_path, tick_minutes=45, funding=funding)
+    st = EngineState.from_dict(StateStore(tmp_path).load()["engine"])
+    assert st.status == "completed"
+    assert st.trade_count == camp.iloc[0]["n_trades"] and st.trade_count > 4
+    assert st.funding_paid == pytest.approx(camp.iloc[0]["funding"], rel=1e-9, abs=1e-9)
+    assert st.funding_paid != 0.0
+    assert st.cash / 10_000 - 1 == pytest.approx(camp.iloc[0]["return"], abs=1e-12)

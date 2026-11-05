@@ -45,7 +45,12 @@ def build_summary(store: StateStore, doc: dict[str, Any]) -> dict[str, Any]:
         trades = trades.drop_duplicates(subset=["ts_ms", "side", "qty", "price"], keep="last")
     if len(trips):
         trips = trips.drop_duplicates(subset=["entry_ms", "exit_ms"], keep="last")
-    unreal = st.qty * live - st.qty * st.avg_cost if st.qty > 0 else 0.0
+    if st.qty > 0:
+        unreal = st.qty * (live - st.avg_cost)
+    elif st.qty < 0:
+        unreal = -st.qty * (st.avg_cost - live)   # short: entry proceeds minus current cost
+    else:
+        unreal = 0.0
     bh = live / run["start_price"] - 1.0 if run.get("start_price") else None
     ret = equity / initial - 1.0
     return {
@@ -76,6 +81,9 @@ def build_summary(store: StateStore, doc: dict[str, Any]) -> dict[str, Any]:
         "unrealized_pnl": unreal,
         "realized_pnl": st.realized_pnl,
         "fees_paid": st.fees_paid,
+        "funding_paid": st.funding_paid,
+        "instrument": run.get("instrument", "spot"),
+        "side": "long" if st.qty > 0 else ("short" if st.qty < 0 else "flat"),
         "max_drawdown": st.max_drawdown,
         "peak_equity": st.peak_equity,
         "drawdown_now": max(0.0, 1.0 - equity / max(st.peak_equity, equity)) if st.peak_equity else 0.0,
@@ -166,10 +174,13 @@ def status_markdown(s: dict[str, Any], store: StateStore, n_trades: int = 15, n_
         f"| P&L | {_f(s['pnl'])} USDT (realised {_f(s['realized_pnl'])}, unrealised {_f(s['unrealized_pnl'])}) |",
         f"| Buy & hold since start | {_pct(s['buy_hold_return'])} (strategy vs B&H: {_pct(s['excess_return'])}) |",
         f"| BTC price | {_f(s['price'])} (start {_f(s['start_price'])}) |",
-        f"| Position | {s['qty']:.5f} BTC = {_f(s['position_value'])} USDT ({_pct(s['exposure'], 1, False)} exposure) |",
+        f"| Position | {s['side']} {abs(s['qty']):.5f} BTC = {_f(abs(s['position_value']))} USDT "
+        f"({_pct(s['exposure'], 1, False)} exposure, {s['instrument']}) |",
         f"| Cash | {_f(s['cash'])} USDT |",
         f"| Max drawdown | {_pct(s['max_drawdown'], 2, False)} (current {_pct(s['drawdown_now'], 2, False)}) |",
-        f"| Fees paid | {_f(s['fees_paid'])} USDT |",
+        f"| Fees paid | {_f(s['fees_paid'])} USDT"
+        + (f" - funding paid {_f(s['funding_paid'])} USDT (negative = received)" if s["instrument"] != "spot" else "")
+        + " |",
         f"| Trades / round trips | {s['trades']} / {s['round_trips']} (win rate {_pct(s['win_rate'], 0, False)}) |",
         f"| Run window | {s['start_time']} -> {s['end_time']} (day {s['days_elapsed']:.1f} of {s['days_total']:g}) |",
         f"| Strategy | `{s['strategy']}` |",

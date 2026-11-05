@@ -158,3 +158,10 @@ def test_implausible_forming_bar_is_rejected():
     md = MarketData(["binance_vision"], http=FakeHttp(payload), clock=lambda: now / 1000)
     res = md.fetch("1h", 200, 100)
     assert res.forming_open is None and any("rejected" in w for w in res.warnings)
+
+
+@pytest.mark.network
+def test_live_funding_feed():
+    s = MarketData(["binance_vision"]).fetch_funding()
+    assert len(s) >= 50 and s.abs().max() < 0.05
+    assert time.time() * 1000 - s.index[-1] < 9 * 3_600_000

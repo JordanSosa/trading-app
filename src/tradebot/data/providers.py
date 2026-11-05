@@ -343,6 +343,46 @@ class MarketData:
                 errors.append(msg)
         raise ProviderError("all market data providers failed: " + " | ".join(errors))
 
+    def fetch_funding(self, now_ms: int | None = None) -> pd.Series:
+        """Recent BTC/USDT perpetual funding settlements (~33 days), epoch-ms indexed.
+
+        Binance's futures API is geo-blocked from US-hosted runners, so the live
+        run uses OKX's public history (Bitget as fallback). Backtests use the
+        Binance archive; venue funding rates are highly correlated but not
+        identical, which is a documented approximation.
+        """
+        errors = []
+        sources = (
+            ("okx", "https://www.okx.com/api/v5/public/funding-rate-history",
+             {"instId": "BTC-USDT-SWAP", "limit": 100}),
+            ("bitget", "https://api.bitget.com/api/v2/mix/market/history-fund-rate",
+             {"symbol": "BTCUSDT", "productType": "usdt-futures", "pageSize": 100}),
+        )
+        for name, url, params in sources:
+            try:
+                data = self.http.get_json(url, params)
+                if name == "okx":
+                    if str(data.get("code")) != "0":
+                        raise ProviderError(f"okx error: {data.get('msg')}")
+                    rows = [(int(r["fundingTime"]), float(r.get("realizedRate") or r["fundingRate"]))
+                            for r in data["data"]]
+                else:
+                    if str(data.get("code")) != "00000":
+                        raise ProviderError(f"bitget error: {data.get('msg')}")
+                    rows = [(int(r["fundingTime"]), float(r["fundingRate"])) for r in data["data"]]
+                if not rows:
+                    raise ProviderError("empty funding history")
+                times = [t - t % 60_000 for t, _ in rows]
+                ser = pd.Series([r for _, r in rows], index=times, dtype="float64").sort_index()
+                ser = ser[~ser.index.duplicated(keep="last")]
+                if not ser.abs().lt(0.05).all():
+                    raise ProviderError("implausible funding rate in response")
+                return ser
+            except Exception as exc:  # noqa: BLE001
+                errors.append(f"{name}: {exc}")
+                log.warning("funding source %s failed: %s", name, exc)
+        raise ProviderError("all funding sources failed: " + " | ".join(errors))
+
     def cross_check(self, primary: str, closed: pd.DataFrame, interval: str, max_dev: float,
                     bars: int = 6) -> tuple[bool, str]:
         """Compare the latest closed bars with the same bars from another provider.

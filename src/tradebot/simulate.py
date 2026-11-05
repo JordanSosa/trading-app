@@ -21,8 +21,9 @@ from .state import StateStore
 
 
 class HistoricalMarketData:
-    def __init__(self, candles: pd.DataFrame, interval_ms: int):
+    def __init__(self, candles: pd.DataFrame, interval_ms: int, funding: pd.Series | None = None):
         self.candles = candles
+        self.funding = funding if funding is not None else pd.Series(dtype="float64")
         self.ms = index_ms(candles.index)
         self.interval_ms = interval_ms
         self.now_ms = int(self.ms[0])
@@ -46,14 +47,20 @@ class HistoricalMarketData:
             f_close = f_open
         return FetchResult(closed, f_open, f_ms, "historical", [], f_close)
 
+    def fetch_funding(self, now_ms: int | None = None) -> pd.Series:
+        """Funding settled up to the simulated now (no look-ahead)."""
+        t = self.now_ms if now_ms is None else now_ms
+        return self.funding[self.funding.index <= t]
+
     def cross_check(self, primary, closed, interval, max_dev, bars=6):  # noqa: ARG002
         return True, "historical replay: cross-check skipped"
 
 
 def replay(cfg: Config, candles: pd.DataFrame, start: str | pd.Timestamp, end: str | pd.Timestamp,
-           state_dir: str | Path, tick_minutes: int = 15, write_reports: bool = False) -> list[TickResult]:
+           state_dir: str | Path, tick_minutes: int = 15, write_reports: bool = False,
+           funding: pd.Series | None = None) -> list[TickResult]:
     """Run ``tick`` every ``tick_minutes`` of simulated time from start to end."""
-    md = HistoricalMarketData(candles, cfg.run.timeframe_ms)
+    md = HistoricalMarketData(candles, cfg.run.timeframe_ms, funding)
     store = StateStore(state_dir)
     t = pd.Timestamp(start, tz="UTC").value // 1_000_000 if not isinstance(start, pd.Timestamp) else start.value // 1_000_000
     t_end = pd.Timestamp(end, tz="UTC").value // 1_000_000 if not isinstance(end, pd.Timestamp) else end.value // 1_000_000

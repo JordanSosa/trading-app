@@ -21,6 +21,9 @@ from typing import Any, Protocol
 import pandas as pd
 
 from . import __version__
+import numpy as np
+
+from .backtest import funding_per_bar
 from .config import Config
 from .data.candles import index_ms
 from .data.providers import FetchResult, HttpClient, MarketData, ProviderError
@@ -38,6 +41,7 @@ class DataSource(Protocol):
     def fetch(self, interval: str, closed_bars: int, min_bars: int) -> FetchResult: ...
     def cross_check(self, primary: str, closed: pd.DataFrame, interval: str, max_dev: float,
                     bars: int = 6) -> tuple[bool, str]: ...
+    def fetch_funding(self, now_ms: int | None = None) -> pd.Series: ...
 
 
 @dataclass
@@ -109,6 +113,7 @@ def new_run_document(cfg: Config, data: FetchResult, now_ms: int) -> dict[str, A
             "id": pd.Timestamp(now_ms, unit="ms", tz="UTC").strftime("run-%Y%m%dT%H%MZ"),
             "symbol": cfg.run.symbol,
             "timeframe": cfg.run.timeframe,
+            "instrument": cfg.run.instrument,
             "mode": cfg.run.mode,
             "strategy": strat.name,
             "strategy_params": strat.params,
@@ -223,6 +228,12 @@ def tick(cfg: Config, store: StateStore, md: DataSource | None = None, now_ms: i
         sig = strategy.signals(candles)
         tgt = sig["target"].to_numpy()
         sd = sig["stop_dist"].to_numpy()
+        fund = np.zeros(len(candles))
+        if cfg.run.instrument != "spot" and new_mask.any():
+            try:
+                fund = funding_per_bar(open_ms, step, md.fetch_funding(now_ms))
+            except ProviderError as exc:
+                return _record_failure(store, doc, now_ms, f"funding data unavailable: {exc}", notifier)
         engine = Engine(params, state)
         bars_before = state.bars_processed
         idx = [i for i in range(len(candles)) if new_mask[i]]
@@ -241,7 +252,7 @@ def tick(cfg: Config, store: StateStore, md: DataSource | None = None, now_ms: i
             for i in usable:
                 r = candles.iloc[i]
                 engine.on_close(int(open_ms[i]), float(r["open"]), float(r["high"]), float(r["low"]),
-                                float(r["close"]), float(tgt[i]), float(sd[i]))
+                                float(r["close"]), float(tgt[i]), float(sd[i]), float(fund[i]))
 
         # 4) execute pending order at the open of the forming bar -------------
         if (data.forming_open_ms is not None and data.forming_open is not None
