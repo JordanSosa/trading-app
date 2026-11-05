@@ -33,8 +33,8 @@ average. If both fire on the same bar, off wins.
 The reasons come from the TRAIN (2018-2023) research in research/ls_sleeve.md:
 
 * **Slow-trend gate (close < SMA(regime_n)).** BTC drifts up. Breakdowns
-  above the slow average are mostly bear traps; without the gate the sleeve
-  lost money in most years.
+  above the slow average are mostly bear traps: without the gate (and floor)
+  the short leg alone scored about zero on TRAIN and lost in 3 of 6 years.
 * **Event entry (fresh 10-day low), not a level.** After an exit the sleeve
   waits for a new breakdown instead of re-shorting the same level.
 * **Fast exit (2-day high).** Bear-market rallies are short and violent. The
@@ -43,8 +43,9 @@ The reasons come from the TRAIN (2018-2023) research in research/ls_sleeve.md:
 * **Oversold floor.** No short, and any open short is covered, once the close
   is more than ``floor`` below the regime average. Capitulation lows (Nov-Dec
   2018, Mar 2020, Jun-Jul 2021, Jun 2022) are where BTC's short squeezes
-  start. The floor was the single largest improvement found: about +0.005 of
-  TRAIN score at size 0.5, with a smaller loss tail.
+  start. The floor was the single largest improvement found: TRAIN score
+  0.0441 -> 0.0521 (perp mode), with the 30-day p05 improving from -10.0% to
+  -8.9%.
 * "Clearly bearish" confirmations that wait longer (EMA600 below the regime
   average, a falling regime average) *hurt*: the profitable shorts come early
   in a decline, and late-bear breakdowns are the ones that get squeezed.
