@@ -21,3 +21,7 @@ htmlcov/
 /replay-state/
 .env
 *.pkl
+
+# Scratch output accidentally written to the repo root by analysis scripts
+/*.csv
+/*.json
