@@ -44,12 +44,14 @@ class EngineParams:
     stop_cooldown_bars: int
     end_action: str = "flatten"
     max_short: float = 0.0  # > 0 allows short exposure down to -max_short (perp mode)
+    short_fee_rate: float | None = None  # fee for short-side fills (None = fee_rate)
+    funding_on_longs: bool = True        # False in hybrid mode: longs are held on spot
 
     @classmethod
     def from_config(cls, cfg: Config) -> "EngineParams":
         return cls(
             interval_ms=cfg.run.timeframe_ms,
-            fee_rate=cfg.costs.fee_rate,
+            fee_rate=cfg.costs.perp_fee_rate if cfg.run.instrument == "perp" else cfg.costs.fee_rate,
             slippage=cfg.costs.slippage,
             min_notional=cfg.costs.min_notional,
             qty_step=cfg.costs.qty_step,
@@ -62,6 +64,9 @@ class EngineParams:
             stop_cooldown_bars=cfg.risk.stop_cooldown_bars,
             end_action=cfg.run.end_action,
             max_short=cfg.risk.max_short,
+            short_fee_rate=(cfg.costs.perp_fee_rate if cfg.run.instrument in ("perp", "hybrid")
+                            else cfg.costs.fee_rate),
+            funding_on_longs=cfg.run.instrument == "perp",
         )
 
 
@@ -203,7 +208,7 @@ class Engine:
         elif side == "sell":                       # open / add short
             price = ref_price * (1.0 - p.slippage)
             notional = qty * price
-            fee = notional * p.fee_rate
+            fee = notional * (p.fee_rate if p.short_fee_rate is None else p.short_fee_rate)
             was_flat = self.is_flat(ref_price)
             proceeds = s.avg_cost * (-s.qty) + notional - fee
             equity_before = s.cash + s.qty * ref_price
@@ -219,7 +224,7 @@ class Engine:
         else:                                      # buy to reduce / close short
             price = ref_price * (1.0 + p.slippage)
             notional = qty * price
-            fee = notional * p.fee_rate
+            fee = notional * (p.fee_rate if p.short_fee_rate is None else p.short_fee_rate)
             s.cash -= notional + fee
             realized = qty * s.avg_cost - notional - fee
             s.realized_pnl += realized
@@ -354,7 +359,7 @@ class Engine:
             self._event(close_ms, "stop", f"protective stop hit at {stop_level:.2f}", price=ref)
 
         # 2) funding settlement (perp mode), then mark to market
-        if funding and s.qty != 0.0:
+        if funding and (s.qty < 0.0 or (s.qty > 0.0 and p.funding_on_longs)):
             payment = s.qty * c * funding
             s.cash -= payment
             s.funding_paid += payment

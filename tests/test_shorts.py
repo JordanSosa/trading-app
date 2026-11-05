@@ -128,3 +128,29 @@ def test_funding_is_booked_at_the_bar_containing_settlement():
     fund = pd.Series([0.001, 0.002], index=[8 * H, 3 * H + 1])   # 08:00 and just after 03:00
     f = funding_per_bar(open_ms, H, fund)
     assert f[7] == 0.001 and f[3] == 0.002 and f.sum() == pytest.approx(0.003)
+
+
+def test_hybrid_mode_charges_spot_fees_and_no_funding_on_longs():
+    from tradebot.engine import EngineParams
+    cfg = config_from_dict({"run": {"instrument": "hybrid"}, "risk": {"max_short": 1.0}})
+    p = EngineParams.from_config(cfg)
+    assert p.fee_rate == 0.001 and p.short_fee_rate == 0.0005 and not p.funding_on_longs
+    e = Engine(p, EngineState.fresh(10_000.0))
+    bar(e, 0, 100, 100, 100, 100, 1.0)
+    bar(e, 1, 100, 100, 100, 100, 1.0)
+    assert e.trades[0]["fee"] == pytest.approx(e.trades[0]["notional"] * 0.001)
+    cash = e.state.cash
+    e.on_close(2 * H, 100, 100, 100, 100, -1.0, math.nan, 0.001)   # long: no funding in hybrid
+    assert e.state.cash == cash and e.state.funding_paid == 0.0
+    e.on_open(3 * H, 100)                                           # flip to short
+    short_fill = e.trades[-1]
+    assert short_fill["side"] == "sell" and short_fill["fee"] == pytest.approx(short_fill["notional"] * 0.0005)
+    cash = e.state.cash
+    e.on_close(3 * H, 100, 100, 100, 100, -1.0, math.nan, 0.001)   # short receives funding
+    assert e.state.cash > cash
+
+
+def test_perp_mode_uses_perp_fee_for_both_sides():
+    from tradebot.engine import EngineParams
+    p = EngineParams.from_config(config_from_dict({"run": {"instrument": "perp"}, "risk": {"max_short": 1.0}}))
+    assert p.fee_rate == 0.0005 and p.short_fee_rate == 0.0005 and p.funding_on_longs

@@ -41,8 +41,9 @@ class RunConfig:
     state_dir: str = "state"
     # Only paper trading is implemented. Anything else is refused.
     mode: str = "paper"
-    # "spot": long/flat BTC against USDT. "perp": USDT-margined perpetual
-    # futures (needed for short positions), which pays/receives funding.
+    # "spot": long/flat BTC against USDT.
+    # "perp": everything on USDT-margined perpetual futures (pays/receives funding).
+    # "hybrid": longs held on spot (no funding), shorts on perpetual futures.
     instrument: str = "spot"
 
     @property
@@ -54,6 +55,8 @@ class RunConfig:
 class CostConfig:
     # Binance spot taker fee without BNB discount.
     fee_rate: float = 0.001
+    # Binance USD-M perpetual taker fee (regular tier); used for perp fills.
+    perp_fee_rate: float = 0.0005
     # Slippage applied against us on every fill, in basis points.
     slippage_bps: float = 3.0
     # Binance BTCUSDT filters: NOTIONAL min 5 USDT, LOT_SIZE step 0.00001 BTC.
@@ -201,12 +204,14 @@ def validate(cfg: Config) -> None:
         raise ConfigError("qty_step must be > 0 and min_notional >= 0")
     if not 0 < k.max_exposure <= 1.0:
         raise ConfigError("max_exposure must be in (0, 1] (no leverage)")
-    if r.instrument not in ("spot", "perp"):
-        raise ConfigError("instrument must be 'spot' or 'perp'")
+    if r.instrument not in ("spot", "perp", "hybrid"):
+        raise ConfigError("instrument must be 'spot', 'perp' or 'hybrid'")
+    if not 0 <= c.perp_fee_rate < 0.05:
+        raise ConfigError("perp_fee_rate must be in [0, 0.05)")
     if not 0 <= k.max_short <= 1.0:
         raise ConfigError("max_short must be in [0, 1] (no leverage)")
-    if k.max_short > 0 and r.instrument != "perp":
-        raise ConfigError("short exposure (max_short > 0) requires run.instrument = 'perp'")
+    if k.max_short > 0 and r.instrument == "spot":
+        raise ConfigError("short exposure (max_short > 0) requires run.instrument = 'perp' or 'hybrid'")
     if not 0 <= k.min_rebalance < 1:
         raise ConfigError("min_rebalance must be in [0, 1)")
     if not 0 < k.circuit_breaker_dd < 1 or k.circuit_breaker_hours < 0:

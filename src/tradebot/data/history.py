@@ -188,6 +188,7 @@ def download_funding(data_dir: str | Path = "data", start: str = "2020-01-01", h
 
 def load_funding(path: str | Path) -> pd.Series:
     df = pd.read_csv(path)
-    ser = pd.Series(df["rate"].to_numpy(dtype="float64"), index=df["time_ms"].astype("int64").to_numpy())
+    ser = pd.Series(df.iloc[:, 1].to_numpy(dtype="float64"), index=df.iloc[:, 0].astype("int64").to_numpy(),
+                    name="rate")
     ser.index.name = "time_ms"
     return ser.sort_index()
