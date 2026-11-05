@@ -210,6 +210,34 @@ def cmd_replay(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_serve(args: argparse.Namespace) -> int:
+    import functools
+    import http.server
+    cfg = _cfg(args)
+    root = Path(cfg.run.state_dir).resolve()
+    if not root.exists():
+        print(f"state directory {root} does not exist yet; run `tradebot tick` first", file=sys.stderr)
+        return 1
+
+    class Handler(http.server.SimpleHTTPRequestHandler):
+        def do_GET(self):  # noqa: N802
+            if self.path in ("/", ""):
+                self.path = "/dashboard.html"
+            return super().do_GET()
+
+        def log_message(self, fmt, *a):  # quieter logs
+            logging.getLogger("tradebot.serve").info(fmt, *a)
+
+    handler = functools.partial(Handler, directory=str(root))
+    with http.server.ThreadingHTTPServer((args.host, args.port), handler) as httpd:
+        print(f"serving {root} on http://{args.host}:{args.port}/ (Ctrl+C to stop)")
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            pass
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="tradebot", description="BTC/USDT paper-trading bot")
     p.add_argument("-v", "--verbose", action="store_true")
@@ -264,6 +292,12 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--state-dir")
     sp.add_argument("--yes", action="store_true")
     sp.set_defaults(func=cmd_reset)
+
+    sp = common(sub.add_parser("serve", help="serve the dashboard of a state directory over HTTP"))
+    sp.add_argument("--state-dir")
+    sp.add_argument("--host", default="127.0.0.1")
+    sp.add_argument("--port", type=int, default=8080)
+    sp.set_defaults(func=cmd_serve)
 
     sp = sub.add_parser("strategies", help="list available strategies")
     sp.set_defaults(func=cmd_strategies)

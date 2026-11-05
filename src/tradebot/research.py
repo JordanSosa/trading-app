@@ -29,6 +29,8 @@ PERIODS = {
     "train": ("2018-01-01", "2023-12-31"),
     "valid": ("2024-01-01", "2024-12-31"),
     "holdout": ("2025-01-01", None),
+    # TRAIN + VALID together, used for the final model-selection ranking.
+    "dev": ("2018-01-01", "2024-12-31"),
 }
 TRAIN_YEARS = [2018, 2019, 2020, 2021, 2022, 2023]
 
