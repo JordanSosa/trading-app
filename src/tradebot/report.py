@@ -132,7 +132,8 @@ def equity_svg(store: StateStore, doc: dict[str, Any], width: int = 900, height:
     for k in range(n_xt + 1):
         t = t0 + (t1 - t0) * k / n_xt
         lbl = pd.Timestamp(int(t), unit="ms", tz="UTC").strftime("%b %d %H:%M")
-        grid.append(f'<text x="{x(t):.1f}" y="{pad_t + h + 22}" text-anchor="middle">{lbl}</text>')
+        anchor = "start" if k == 0 else ("end" if k == n_xt else "middle")
+        grid.append(f'<text x="{x(t):.1f}" y="{pad_t + h + 22}" text-anchor="{anchor}">{lbl}</text>')
     base_y = y(init)
     final_e = pts_e[-1]
     color = "#1a7f37" if final_e >= init else "#cf222e"
@@ -227,7 +228,7 @@ def dashboard_html(s: dict[str, Any], svg: str, md_tables: list[tuple[str, str]]
     ret_cls = "pos" if s["return"] >= 0 else "neg"
     rows = "".join([
         row("Equity", f"<b>{_f(s['equity'])} USDT</b> <span class='{ret_cls}'>{_pct(s['return'])}</span>"),
-        row("Buy &amp; hold since start", _pct(s["buy_hold_return"])),
+        row("Buy & hold since start", _pct(s["buy_hold_return"])),
         row("BTC price", _f(s["price"])),
         row("Position", f"{s['qty']:.5f} BTC ({_pct(s['exposure'], 1, False)})"),
         row("Cash", f"{_f(s['cash'])} USDT"),

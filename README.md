@@ -10,7 +10,33 @@ the backtest to full floating-point precision (see `tests/test_forward.py`).
 > trading is deliberately not implemented, and the config refuses any
 > `mode` other than `paper`.
 
-<!-- RESULTS -->
+## What to expect (read this first)
+
+No strategy can promise profit over a given 30 days, and this one doesn't. The
+selected strategy, **`breakout_dual`**, is a long-only BTC trend follower. It
+holds 0%, 50% or 100% BTC, based on a 6-day-high breakout and a 600-hour-EMA +
+3 x ATR band breakout, and sits in USDT otherwise. It was chosen from four
+independently researched and audited families (`research/SELECTION.md`), then
+tested once on 22 months of data it had never seen (`research/RESULTS.md`).
+The table shows 30-day campaigns that start flat with 10,000 USDT and end
+flat, one started every day, after fees.
+
+| 30-day campaigns | 2018-2024 (research) | 2025-01 to 2026-11 (unseen holdout) |
+|---|---:|---:|
+| Mean return | +4.89% | +0.63% |
+| Median return | 0.00% | -0.54% |
+| Ended in profit / flat / at a loss | 46.7% / 4.6% / 48.8% | 38.8% / 5.7% / 55.4% |
+| Bad month (5th percentile) | -8.4% | -6.7% |
+| Worst campaign | -15.9% | -12.0% |
+| Buy & hold, mean 30-day return | +4.61% | -0.21% |
+| Continuous result | CAGR 66%, max DD 32.5% | +12.5% (buy & hold -13.9%), max DD 22.4% |
+
+The edge is real but modest, and it shrank out of sample. The strategy's main
+strength is cutting losses compared with holding BTC. Profits come from
+occasionally catching a strong trend. As of 2026-11-05, BTC is 36% below its
+peak and the strategy is **flat**, so the run will start in USDT and only buy
+on a breakout.
+
 
 ## How it trades
 
