@@ -79,12 +79,14 @@ def check_causal(strategy: Strategy, candles: pd.DataFrame, n_checks: int = 25,
 
     1. Prefix check: ``signals(df[:k]).iloc[-1] == signals(df).iloc[k-1]`` - any
        violation means the strategy peeks at future bars.
-    2. Window check: ``signals(df[k-L:k]).iloc[-1] == signals(df).iloc[k-1]``,
-       where L is the rolling window the forward run computes on
-       (``max(lookback_bars, warmup_bars + 2)``). Recursive indicators (EMA,
-       Wilder, EWM volatility) depend on where their input starts; a violation
-       means ``warmup_bars`` is too small and the live run would trade
-       differently from the backtest. Pass ``window=None`` to skip.
+    2. Window check: ``signals(df[k-L:k]).iloc[-1] == signals(df).iloc[k-1]``
+       with ``L = warmup_bars + 1`` - the least history any bar processed by
+       the forward run can have (it computes on a rolling window and only
+       replays bars with at least ``warmup_bars`` bars before them).
+       Recursive indicators (EMA, Wilder, EWM volatility) depend on where
+       their input starts; a violation means ``warmup_bars`` is too small and
+       the live run would trade differently from the backtest. Pass
+       ``window=None`` to skip.
 
     Returns a list of violations (empty = OK).
     """
@@ -94,7 +96,7 @@ def check_causal(strategy: Strategy, candles: pd.DataFrame, n_checks: int = 25,
     lo = max(2, lo)
     ks = sorted(set(rng.integers(lo, len(candles) + 1, size=n_checks).tolist()) | {len(candles)})
     if window == -1:
-        window = max(load_config().data.lookback_bars, strategy.warmup_bars + 2)
+        window = strategy.warmup_bars + 1
     problems: list[str] = []
 
     def _cmp(part: pd.DataFrame, k: int, tol: float, label: str) -> None:

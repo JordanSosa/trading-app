@@ -31,6 +31,7 @@ from .strategies import get_strategy
 log = logging.getLogger(__name__)
 
 MAX_SOFT_FAILURES = 3  # consecutive data failures tolerated before the tick exits non-zero
+CATCHUP_BARS = 720     # 30 days of 1h bars can be replayed after an outage
 
 
 class DataSource(Protocol):
@@ -145,7 +146,9 @@ def tick(cfg: Config, store: StateStore, md: DataSource | None = None, now_ms: i
     params = EngineParams.from_config(cfg)
     step = cfg.run.timeframe_ms
     need = max(strategy.warmup_bars + 2, 100)
-    lookback = max(cfg.data.lookback_bars, need)
+    # Fetch enough history that up to CATCHUP_BARS missed bars can still be
+    # replayed with full warm-up behind each of them.
+    lookback = max(cfg.data.lookback_bars, strategy.warmup_bars + CATCHUP_BARS)
 
     with store.lock():
         doc = store.load()

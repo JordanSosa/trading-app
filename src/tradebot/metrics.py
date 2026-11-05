@@ -103,6 +103,7 @@ def campaign_summary(campaigns: pd.DataFrame) -> dict[str, Any]:
         "n": int(len(r)),
         "pct_positive": float((r > 0).mean()),
         "pct_flat": float((np.abs(r) < 1e-9).mean()),
+        "pct_negative": float((r < -1e-9).mean()),
         "pct_loss_gt_5": float((r < -0.05).mean()),
         "pct_loss_gt_10": float((r < -0.10).mean()),
         "mean": float(r.mean()),
