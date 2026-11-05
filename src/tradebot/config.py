@@ -53,9 +53,11 @@ class RunConfig:
 
 @dataclass(frozen=True)
 class CostConfig:
-    # Binance spot taker fee without BNB discount.
+    # Binance spot taker fee without BNB discount. Used for spot fills
+    # (instrument "spot", and the long side of "hybrid").
     fee_rate: float = 0.001
-    # Binance USD-M perpetual taker fee (regular tier); used for perp fills.
+    # Binance USD-M perpetual taker fee (regular tier). Used for every fill in
+    # "perp" mode (fee_rate is then ignored) and for shorts in "hybrid" mode.
     perp_fee_rate: float = 0.0005
     # Slippage applied against us on every fill, in basis points.
     slippage_bps: float = 3.0

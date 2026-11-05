@@ -43,7 +43,9 @@ def funding_per_bar(open_ms: np.ndarray, interval_ms: int, funding: pd.Series | 
     """Sum of funding rates settled inside each bar, i.e. at times in (open, open + interval].
 
     A settlement at 08:00 is booked at the close of the 07:00 bar, using that
-    bar's close as the mark price.
+    bar's close as the mark price. A settlement that falls inside a gap in the
+    candle data (exchange outage) is booked at the first bar after the gap,
+    so no funding is silently dropped.
     """
     out = np.zeros(len(open_ms))
     if funding is None or len(funding) == 0 or len(open_ms) == 0:
@@ -52,8 +54,7 @@ def funding_per_bar(open_ms: np.ndarray, interval_ms: int, funding: pd.Series | 
     r = np.asarray(funding.to_numpy(), dtype="float64")
     close_ms = open_ms + interval_ms
     pos = np.searchsorted(close_ms, t, side="left")      # first bar whose close >= t
-    ok = (pos < len(open_ms))
-    ok[ok] &= open_ms[pos[ok]] < t[ok]
+    ok = (pos < len(open_ms)) & (t > open_ms[0])          # ignore settlements before the data
     np.add.at(out, pos[ok], r[ok])
     return out
 
@@ -174,7 +175,8 @@ def run_campaigns(candles: pd.DataFrame, strategy: Strategy, cfg: Config,
         # Liquidation value of any residual position (long or short) after costs.
         q = state.qty
         px = o[e] * ((1.0 - params.slippage) if q > 0 else (1.0 + params.slippage))
-        final = state.cash + q * px - abs(q) * px * params.fee_rate
+        fee = params.fee_rate if q >= 0 or params.short_fee_rate is None else params.short_fee_rate
+        final = state.cash + q * px - abs(q) * px * fee
         rows.append({
             "start": pd.Timestamp(start_ms, unit="ms", tz="UTC"),
             "return": final / cash - 1.0,

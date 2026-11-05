@@ -66,8 +66,10 @@ def performance(eq: pd.DataFrame, trades: list[dict] | pd.DataFrame, trips: list
         "sortino": (mu / dsd * math.sqrt(periods_per_year)) if dsd > 0 else 0.0,
         "max_drawdown": mdd,
         "calmar": (cagr / mdd) if mdd > 0 and not math.isnan(cagr) else float("nan"),
-        "avg_exposure": float(eq["exposure"].mean()),
-        "time_in_market": float((eq["exposure"] > 0.01).mean()),
+        "avg_exposure": float(eq["exposure"].mean()),              # signed (shorts negative)
+        "avg_abs_exposure": float(eq["exposure"].abs().mean()),
+        "time_in_market": float((eq["exposure"].abs() > 0.01).mean()),
+        "time_short": float((eq["exposure"] < -0.01).mean()),
         "n_trades": int(len(trades_df)),
         "fees_paid": float(trades_df["fee"].sum()) if len(trades_df) else 0.0,
         "turnover": float(trades_df["notional"].sum() / initial_equity) if len(trades_df) else 0.0,

@@ -154,3 +154,12 @@ def test_perp_mode_uses_perp_fee_for_both_sides():
     from tradebot.engine import EngineParams
     p = EngineParams.from_config(config_from_dict({"run": {"instrument": "perp"}, "risk": {"max_short": 1.0}}))
     assert p.fee_rate == 0.0005 and p.short_fee_rate == 0.0005 and p.funding_on_longs
+
+
+def test_funding_inside_a_data_gap_is_booked_at_the_next_bar():
+    import numpy as np
+    from tradebot.backtest import funding_per_bar
+    open_ms = np.array([0, H, 2 * H, 6 * H, 7 * H], dtype="int64")   # bars 3h-5h missing
+    fund = pd.Series([0.001, 0.002, 0.004], index=[2 * H, 4 * H, 100 * H])
+    f = funding_per_bar(open_ms, H, fund)
+    assert f[1] == 0.001 and f[3] == 0.002 and f.sum() == pytest.approx(0.003)

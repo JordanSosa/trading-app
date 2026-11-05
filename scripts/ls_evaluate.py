@@ -34,8 +34,7 @@ YEARS = range(2018, 2025)
 def perp_cfg(max_short: float, mode: str = "perp"):
     """mode "perp": everything on perpetuals; "hybrid": longs on spot, shorts on perps."""
     if mode == "perp":
-        return config_from_dict({"run": {"instrument": "perp"}, "costs": {"fee_rate": 0.0005},
-                                 "risk": {"max_short": max_short}})
+        return config_from_dict({"run": {"instrument": "perp"}, "risk": {"max_short": max_short}})
     return config_from_dict({"run": {"instrument": "hybrid"}, "risk": {"max_short": max_short}})
 
 
