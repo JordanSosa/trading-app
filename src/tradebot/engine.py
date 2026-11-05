@@ -8,7 +8,11 @@ Bar lifecycle (identical in backtest and forward mode)::
                            3. decide the target for the next bar's open
 
 Decisions only ever use data from bars that have closed; fills happen at the
-*next* bar's open with slippage and fees. The engine is pure: all mutable
+*next* bar's open with slippage and fees. Positions are signed: with
+``max_short > 0`` (perpetual-futures mode) the target may be negative, a short
+is booked as ``cash += proceeds, qty < 0`` so equity is always
+``cash + qty * price``, and funding is settled at the close of every bar that
+contains a funding timestamp. The engine is pure: all mutable
 state lives in :class:`EngineState`, which is JSON-serialisable so the forward
 run can stop and resume between ticks without changing results.
 """
@@ -39,6 +43,7 @@ class EngineParams:
     stop_rearm: bool
     stop_cooldown_bars: int
     end_action: str = "flatten"
+    max_short: float = 0.0  # > 0 allows short exposure down to -max_short (perp mode)
 
     @classmethod
     def from_config(cls, cfg: Config) -> "EngineParams":
@@ -56,6 +61,7 @@ class EngineParams:
             stop_rearm=cfg.risk.stop_rearm,
             stop_cooldown_bars=cfg.risk.stop_cooldown_bars,
             end_action=cfg.run.end_action,
+            max_short=cfg.risk.max_short,
         )
 
 
@@ -64,7 +70,7 @@ class EngineState:
     initial_equity: float
     cash: float
     qty: float = 0.0
-    avg_cost: float = 0.0            # USDT per BTC incl. buy fees
+    avg_cost: float = 0.0            # long: USDT per BTC incl. buy fees; short: net proceeds per BTC
     fees_paid: float = 0.0
     realized_pnl: float = 0.0
     hwm: float = 0.0                 # high-water mark (reset after a circuit-breaker halt)
@@ -73,6 +79,8 @@ class EngineState:
     pending: dict[str, Any] | None = None
     stop_price: float | None = None
     rearm_required: bool = False
+    rearm_side: int = 1              # side of the stopped-out position (+1 long, -1 short)
+    funding_paid: float = 0.0        # net funding paid (negative = received)
     cooldown_until_ms: int | None = None
     halt_until_ms: int | None = None
     stopped: bool = False            # campaign stop-loss hit: no more trading
@@ -129,7 +137,7 @@ class Engine:
         return math.floor(q / step + 1e-9) * step if q > 0 else 0.0
 
     def is_flat(self, price: float) -> bool:
-        q = self._floor_qty(self.state.qty)
+        q = self._floor_qty(abs(self.state.qty))
         return q <= 0 or q * price < self.params.min_notional
 
     def equity_at(self, price: float) -> float:
@@ -140,8 +148,26 @@ class Engine:
 
     # ------------------------------------------------------------- execution
     def _fill(self, ts_ms: int, side: str, qty: float, ref_price: float, reason: str) -> None:
+        """Book a fill; a fill that crosses zero is split into close + open."""
+        s = self.state
+        if side == "sell" and s.qty > 0 and qty > s.qty * (1 + 1e-12):
+            first = s.qty
+            self._fill_one(ts_ms, "sell", first, ref_price, reason)
+            self._fill_one(ts_ms, "sell", qty - first, ref_price, reason)
+        elif side == "buy" and s.qty < 0 and qty > -s.qty * (1 + 1e-12):
+            first = -s.qty
+            self._fill_one(ts_ms, "buy", first, ref_price, reason)
+            self._fill_one(ts_ms, "buy", qty - first, ref_price, reason)
+        else:
+            self._fill_one(ts_ms, side, qty, ref_price, reason)
+
+    def _open_trip(self, ts_ms: int, price: float, side: str, equity_before: float) -> None:
+        self.state.trip = {"entry_ms": ts_ms, "entry_price": price, "cost": 0.0, "pnl": 0.0, "basis": 0.0,
+                           "equity_before": equity_before, "side": side}
+
+    def _fill_one(self, ts_ms: int, side: str, qty: float, ref_price: float, reason: str) -> None:
         p, s = self.params, self.state
-        if side == "buy":
+        if side == "buy" and s.qty >= 0:           # open / add long
             price = ref_price * (1.0 + p.slippage)
             notional = qty * price
             fee = notional * p.fee_rate
@@ -156,13 +182,13 @@ class Engine:
             # so the buy row itself carries no realised P&L.
             pnl = 0.0
             if was_flat or s.trip is None:
-                s.trip = {"entry_ms": ts_ms, "entry_price": price, "cost": 0.0, "pnl": 0.0, "basis": 0.0,
-                          "equity_before": s.cash + notional + fee + (s.qty - qty) * ref_price}
+                self._open_trip(ts_ms, price, "long", s.cash + notional + fee + (s.qty - qty) * ref_price)
             s.trip["cost"] += notional + fee
             # Peak capital committed during the trip (denominator for trip return).
             s.trip["basis"] = max(s.trip.get("basis", 0.0), s.qty * s.avg_cost)
             realized = 0.0
-        else:
+            reducing = False
+        elif side == "sell" and s.qty > 0:         # reduce / close long
             price = ref_price * (1.0 - p.slippage)
             notional = qty * price
             fee = notional * p.fee_rate
@@ -173,6 +199,35 @@ class Engine:
             if s.qty < p.qty_step * 1e-6:
                 s.qty = 0.0
             pnl = realized
+            reducing = True
+        elif side == "sell":                       # open / add short
+            price = ref_price * (1.0 - p.slippage)
+            notional = qty * price
+            fee = notional * p.fee_rate
+            was_flat = self.is_flat(ref_price)
+            proceeds = s.avg_cost * (-s.qty) + notional - fee
+            equity_before = s.cash + s.qty * ref_price
+            s.cash += notional - fee
+            s.qty -= qty
+            s.avg_cost = proceeds / (-s.qty)
+            pnl = realized = 0.0
+            if was_flat or s.trip is None:
+                self._open_trip(ts_ms, price, "short", equity_before)
+            s.trip["cost"] += notional + fee
+            s.trip["basis"] = max(s.trip.get("basis", 0.0), -s.qty * s.avg_cost)
+            reducing = False
+        else:                                      # buy to reduce / close short
+            price = ref_price * (1.0 + p.slippage)
+            notional = qty * price
+            fee = notional * p.fee_rate
+            s.cash -= notional + fee
+            realized = qty * s.avg_cost - notional - fee
+            s.realized_pnl += realized
+            s.qty += qty
+            if -s.qty < p.qty_step * 1e-6:
+                s.qty = 0.0
+            pnl = realized
+            reducing = True
         s.fees_paid += fee
         s.trade_count += 1
         if s.trip is not None:
@@ -183,37 +238,61 @@ class Engine:
             "notional": notional, "fee": fee, "realized_pnl": pnl, "reason": reason,
             "cash_after": s.cash, "qty_after": s.qty, "equity_after": equity,
         })
-        if side == "sell" and self.is_flat(ref_price) and s.trip is not None:
+        if reducing and self.is_flat(ref_price) and s.trip is not None:
             t = s.trip
             basis = t.get("basis") or t["cost"]
             self.trips.append({
                 "entry_ms": t["entry_ms"], "exit_ms": ts_ms, "entry_price": t["entry_price"],
                 "exit_price": price, "pnl": t["pnl"], "return": t["pnl"] / basis if basis else 0.0,
-                "exit_reason": reason,
+                "exit_reason": reason, "side": t.get("side", "long"),
             })
             s.trip = None
             s.stop_price = None
 
     def _rebalance(self, ts_ms: int, ref_price: float, target: float, reason: str) -> None:
         p, s = self.params, self.state
-        if target <= 0.0:
-            q = self._floor_qty(s.qty)
+        if s.qty >= 0 and target >= 0.0:
+            # Long side (the only path when max_short == 0).
+            if target <= 0.0:
+                q = self._floor_qty(s.qty)
+                if q > 0 and q * ref_price >= p.min_notional:
+                    self._fill(ts_ms, "sell", q, ref_price, reason)
+                return
+            equity = self.equity_at(ref_price)
+            desired = target * equity / ref_price
+            delta = desired - s.qty
+            if delta > 0:
+                fill = ref_price * (1.0 + p.slippage)
+                affordable = s.cash / (fill * (1.0 + p.fee_rate))
+                q = self._floor_qty(min(delta, affordable))
+                if q > 0 and q * fill >= p.min_notional:
+                    self._fill(ts_ms, "buy", q, ref_price, reason)
+            elif delta < 0:
+                q = self._floor_qty(min(-delta, s.qty))
+                if q > 0 and q * ref_price >= p.min_notional:
+                    self._fill(ts_ms, "sell", q, ref_price, reason)
+            return
+        # Signed path: an open short and/or a short target.
+        if s.qty > 0 and not self.is_flat(ref_price):      # long -> short: close the long first
+            self._fill(ts_ms, "sell", self._floor_qty(s.qty), ref_price, reason)
+        if s.qty < 0 and target >= 0.0:                    # cover the short (fully)
+            q = self._floor_qty(-s.qty)
             if q > 0 and q * ref_price >= p.min_notional:
-                self._fill(ts_ms, "sell", q, ref_price, reason)
+                self._fill(ts_ms, "buy", q, ref_price, reason)
+            if target > 0.0 and self.is_flat(ref_price):
+                self._rebalance(ts_ms, ref_price, target, reason)  # then open the long
             return
         equity = self.equity_at(ref_price)
-        desired = target * equity / ref_price
+        desired = target * equity / ref_price              # <= 0 here
         delta = desired - s.qty
-        if delta > 0:
-            fill = ref_price * (1.0 + p.slippage)
-            affordable = s.cash / (fill * (1.0 + p.fee_rate))
-            q = self._floor_qty(min(delta, affordable))
-            if q > 0 and q * fill >= p.min_notional:
-                self._fill(ts_ms, "buy", q, ref_price, reason)
-        elif delta < 0:
-            q = self._floor_qty(min(-delta, s.qty))
+        if delta < 0:                                      # increase the short
+            q = self._floor_qty(-delta)
             if q > 0 and q * ref_price >= p.min_notional:
                 self._fill(ts_ms, "sell", q, ref_price, reason)
+        elif delta > 0:                                    # reduce the short
+            q = self._floor_qty(min(delta, -s.qty))
+            if q > 0 and q * ref_price >= p.min_notional:
+                self._fill(ts_ms, "buy", q, ref_price, reason)
 
     # ----------------------------------------------------------------- events
     def on_open(self, ts_ms: int, open_price: float) -> None:
@@ -229,12 +308,20 @@ class Engine:
         self._rebalance(ts_ms, open_price, float(order["target"]), order.get("reason", "signal"))
         sd = order.get("stop_dist")
         if was_flat and not self.is_flat(open_price) and sd is not None and math.isfinite(sd) and sd > 0:
-            fill = open_price * (1.0 + self.params.slippage)
-            s.stop_price = fill - sd
+            if s.qty > 0:
+                fill = open_price * (1.0 + self.params.slippage)
+                s.stop_price = fill - sd
+            else:
+                fill = open_price * (1.0 - self.params.slippage)
+                s.stop_price = fill + sd
 
     def on_close(self, ts_ms: int, o: float, h: float, l: float, c: float,
-                 target: float, stop_dist: float = math.nan) -> None:
-        """Process the bar that opened at ``ts_ms`` once it has closed."""
+                 target: float, stop_dist: float = math.nan, funding: float = 0.0) -> None:
+        """Process the bar that opened at ``ts_ms`` once it has closed.
+
+        ``funding`` is the sum of perpetual funding rates settled inside this
+        bar (at its close); longs pay positive rates and shorts receive them.
+        """
         p, s = self.params, self.state
         if s.last_close_ms is not None and ts_ms <= s.last_close_ms:
             return
@@ -248,24 +335,34 @@ class Engine:
         close_ms = ts_ms + p.interval_ms
 
         # 1) intrabar protective stop (resting stop order semantics)
-        if s.stop_price is not None and not self.is_flat(c) and l <= s.stop_price:
-            ref = min(o, s.stop_price)
-            q = self._floor_qty(s.qty)
+        hit_long = s.stop_price is not None and not self.is_flat(c) and s.qty > 0 and l <= s.stop_price
+        hit_short = s.stop_price is not None and not self.is_flat(c) and s.qty < 0 and h >= s.stop_price
+        if hit_long or hit_short:
             stop_level = s.stop_price
-            self._fill(ts_ms + p.interval_ms - 1, "sell", q, ref, "stop")
+            if hit_long:
+                ref = min(o, s.stop_price)
+                self._fill(ts_ms + p.interval_ms - 1, "sell", self._floor_qty(s.qty), ref, "stop")
+            else:
+                ref = max(o, s.stop_price)
+                self._fill(ts_ms + p.interval_ms - 1, "buy", self._floor_qty(-s.qty), ref, "stop")
             s.stop_price = None
             if p.stop_rearm:
                 s.rearm_required = True
+                s.rearm_side = 1 if hit_long else -1
             if p.stop_cooldown_bars > 0:
                 s.cooldown_until_ms = close_ms + p.stop_cooldown_bars * p.interval_ms
             self._event(close_ms, "stop", f"protective stop hit at {stop_level:.2f}", price=ref)
 
-        # 2) mark to market
+        # 2) funding settlement (perp mode), then mark to market
+        if funding and s.qty != 0.0:
+            payment = s.qty * c * funding
+            s.cash -= payment
+            s.funding_paid += payment
         equity = s.cash + s.qty * c
         s.last_price = c
         s.last_equity = equity
         s.bars_processed += 1
-        if s.qty * c >= p.min_notional:
+        if abs(s.qty) * c >= p.min_notional:
             s.in_market_bars += 1
         if equity > s.hwm:
             s.hwm = equity
@@ -277,7 +374,7 @@ class Engine:
 
         # 3) decide the target for the next open
         raw = target if (target is not None and math.isfinite(target)) else 0.0
-        t = min(max(raw, 0.0), p.max_exposure)
+        t = min(max(raw, -p.max_short if p.max_short > 0 else 0.0), p.max_exposure)
         reason = "signal"
         decide = True
 
@@ -315,9 +412,10 @@ class Engine:
                 self._event(close_ms, "alert", f"circuit breaker: drawdown {dd_hwm:.1%} "
                             f"from high-water mark; flat for {p.cb_ms / 3_600_000:.0f}h")
             if s.rearm_required:
-                if raw <= 0.0:
+                side = s.rearm_side or 1
+                if (side > 0 and raw <= 0.0) or (side < 0 and raw >= 0.0):
                     s.rearm_required = False
-                elif self.is_flat(c):
+                elif self.is_flat(c) and t * side > 0:
                     t, reason = 0.0, "awaiting re-arm"
             if s.cooldown_until_ms is not None:
                 if close_ms < s.cooldown_until_ms:
@@ -328,20 +426,25 @@ class Engine:
 
         # trailing stop update (after the stop check, using this close)
         if not self.is_flat(c) and stop_dist is not None and math.isfinite(stop_dist) and stop_dist > 0:
-            new_stop = c - stop_dist
-            if s.stop_price is None or new_stop > s.stop_price:
-                s.stop_price = new_stop
+            if s.qty > 0:
+                new_stop = c - stop_dist
+                if s.stop_price is None or new_stop > s.stop_price:
+                    s.stop_price = new_stop
+            else:
+                new_stop = c + stop_dist
+                if s.stop_price is None or new_stop < s.stop_price:
+                    s.stop_price = new_stop
 
         s.last_target = t
         if decide:
             flat = self.is_flat(c)
             exposure = (s.qty * c / equity) if equity > 0 else 0.0
             order = None
-            if t <= 0.0:
+            if t == 0.0:
                 if not flat:
                     order = {"target": 0.0, "reason": reason}
             elif flat:
-                if t * equity >= p.min_notional:
+                if abs(t) * equity >= p.min_notional:
                     order = {"target": t, "reason": reason}
             elif abs(t - exposure) >= p.min_rebalance - EPS:
                 order = {"target": t, "reason": reason}

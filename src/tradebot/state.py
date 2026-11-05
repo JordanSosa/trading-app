@@ -29,8 +29,8 @@ SCHEMA_VERSION = 1
 
 TRADE_FIELDS = ["ts_ms", "time", "side", "qty", "price", "ref_price", "notional", "fee", "realized_pnl",
                 "reason", "cash_after", "qty_after", "equity_after"]
-TRIP_FIELDS = ["entry_ms", "exit_ms", "entry_time", "exit_time", "entry_price", "exit_price", "pnl", "return",
-               "exit_reason"]
+TRIP_FIELDS = ["entry_ms", "exit_ms", "entry_time", "exit_time", "side", "entry_price", "exit_price", "pnl",
+               "return", "exit_reason"]
 EQUITY_FIELDS = ["ts_ms", "time", "price", "cash", "qty", "equity", "target"]
 
 

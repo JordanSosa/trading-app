@@ -146,3 +146,48 @@ def load_history(path: str | Path) -> pd.DataFrame:
     df = pd.read_csv(path, index_col=0)
     df.index = pd.to_datetime(df.index, utc=True)
     return normalise(df[COLUMNS])
+
+
+def download_funding(data_dir: str | Path = "data", start: str = "2020-01-01", http: HttpClient | None = None,
+                     now: datetime | None = None) -> pd.Series:
+    """Binance USD-M BTCUSDT perpetual funding history (8-hourly) from the archive.
+
+    Returns a Series of funding rates indexed by settlement time in epoch ms
+    (normalised to the minute; the archive carries a few ms of jitter) and
+    writes ``data/BTCUSDT-funding.csv``. Months not yet archived are simply
+    absent; the live run fetches recent funding from a public venue API.
+    """
+    http = http or HttpClient(timeout_s=30, retries=4)
+    data_dir = Path(data_dir)
+    raw_dir = data_dir / "raw" / "funding"
+    now = now or datetime.now(timezone.utc)
+    rows: list[tuple[int, float]] = []
+    for y, m in _month_iter(date.fromisoformat(start), now.date().replace(day=1) - timedelta(days=1)):
+        fname = f"BTCUSDT-fundingRate-{y:04d}-{m:02d}.zip"
+        url = f"{ARCHIVE.replace('/spot', '/futures/um')}/monthly/fundingRate/BTCUSDT/{fname}"
+        dest = raw_dir / fname
+        if not _download_verified(http, url, dest):
+            continue
+        with zipfile.ZipFile(io.BytesIO(dest.read_bytes())) as zf:
+            infos = zf.infolist()
+            if len(infos) != 1 or infos[0].file_size > MAX_ARCHIVE_MEMBER_BYTES:
+                raise RuntimeError("unexpected funding archive layout")
+            with zf.open(infos[0]) as fh:
+                f = pd.read_csv(fh)
+        f = f[pd.to_numeric(f.iloc[:, 0], errors="coerce").notna()]
+        t = f.iloc[:, 0].astype("int64").to_numpy()
+        rows.extend(zip((t - t % 60_000).tolist(), f.iloc[:, -1].astype(float).tolist()))
+    ser = pd.Series(dict(rows), dtype="float64").sort_index()
+    ser.index.name = "time_ms"
+    ser.name = "rate"
+    out = data_dir / "BTCUSDT-funding.csv"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    ser.to_csv(out)
+    return ser
+
+
+def load_funding(path: str | Path) -> pd.Series:
+    df = pd.read_csv(path)
+    ser = pd.Series(df["rate"].to_numpy(dtype="float64"), index=df["time_ms"].astype("int64").to_numpy())
+    ser.index.name = "time_ms"
+    return ser.sort_index()

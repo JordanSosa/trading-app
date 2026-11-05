@@ -4,8 +4,10 @@ A strategy is a *stateless, causal* function of candle history. It returns a
 frame aligned with the input candles containing:
 
 ``target``
-    Desired BTC exposure as a fraction of equity in ``[0, 1]`` to hold from
-    the *next* bar's open. NaN is treated as 0 (flat).
+    Desired BTC exposure as a fraction of equity in ``[-1, 1]`` to hold from
+    the *next* bar's open (negative = short; the engine clips it to the
+    configured ``[-max_short, max_exposure]``, so long-only configs never
+    short). NaN is treated as 0 (flat).
 ``stop_dist`` (optional)
     Distance in USDT below price for an intrabar protective trailing stop.
     The engine sets the stop at ``entry_fill - stop_dist`` and ratchets it up
@@ -71,7 +73,7 @@ class Strategy:
         if not out.index.equals(df.index):
             raise ValueError(f"{self.name}.compute() must return a frame aligned with the input")
         res = pd.DataFrame(index=df.index)
-        res["target"] = out["target"].astype("float64").clip(lower=0.0, upper=1.0)
+        res["target"] = out["target"].astype("float64").clip(lower=-1.0, upper=1.0)
         res["stop_dist"] = out["stop_dist"].astype("float64") if "stop_dist" in out.columns else float("nan")
         return res
 

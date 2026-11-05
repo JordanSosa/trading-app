@@ -43,13 +43,13 @@ def campaign_score(campaigns: pd.DataFrame) -> float:
 
 def evaluate_period(candles: pd.DataFrame, strategy: Strategy, cfg: Config | None = None,
                     period: str = "train", signals: pd.DataFrame | None = None,
-                    per_year: bool = True) -> dict[str, Any]:
+                    per_year: bool = True, funding: pd.Series | None = None) -> dict[str, Any]:
     """Score + campaign distribution + continuous metrics (+ per-year) for a period."""
     cfg = cfg or load_config()
     start, end = PERIODS[period]
     sig = signals if signals is not None else strategy.signals(candles)
-    camp = run_campaigns(candles, strategy, cfg, start, end, signals=sig)
-    bt = run_backtest(candles, strategy, cfg, start, end, signals=sig)
+    camp = run_campaigns(candles, strategy, cfg, start, end, signals=sig, funding=funding)
+    bt = run_backtest(candles, strategy, cfg, start, end, signals=sig, funding=funding)
     out: dict[str, Any] = {
         "period": period,
         "score": campaign_score(camp),
@@ -110,3 +110,50 @@ def check_causal(strategy: Strategy, candles: pd.DataFrame, n_checks: int = 25,
         if window is not None and k > window:
             _cmp(strategy.signals(candles.iloc[k - window:k]), k, window_atol, f"window[{window}]")
     return problems
+
+
+PERTURB_STEPS = (0.70, 0.85, 1.15, 1.30)
+
+
+def param_variants(name: str):
+    """Default params plus each numeric param at -30/-15/+15/+30% (one at a time)."""
+    from .strategies import get_strategy
+    base = get_strategy(name)
+    yield "default", dict(base.params)
+    for k, v in base.default_params.items():
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or v == 0:
+            continue
+        for f in PERTURB_STEPS:
+            nv = v * f
+            if isinstance(v, int):
+                nv = int(round(nv))
+                if nv == v:
+                    continue
+            params = {**base.params, k: nv}
+            try:
+                get_strategy(name, params)
+            except ValueError:
+                continue
+            yield f"{k}x{f}", params
+
+
+def paired_block_t(a: pd.DataFrame, b: pd.DataFrame, block: int = 30, n_boot: int = 2000,
+                   seed: int = 0) -> dict[str, float]:
+    """Paired comparison of two campaign sets on identical start dates.
+
+    Uses d = log1p(r_a) - log1p(r_b) per start. Overlapping 30-day campaigns
+    are strongly autocorrelated, so the standard error comes from a moving-
+    block bootstrap with ``block`` consecutive starts per block.
+    """
+    m = a[["start", "return"]].merge(b[["start", "return"]], on="start", suffixes=("_a", "_b"))
+    d = (np.log1p(m["return_a"]) - np.log1p(m["return_b"])).to_numpy()
+    n = len(d)
+    if n < 2 * block:
+        return {"n": n, "mean_diff": float(d.mean()) if n else float("nan"), "se": float("nan"), "t": float("nan")}
+    rng = np.random.default_rng(seed)
+    k = int(np.ceil(n / block))
+    starts = rng.integers(0, n - block + 1, size=(n_boot, k))
+    idx = (starts[:, :, None] + np.arange(block)[None, None, :]).reshape(n_boot, -1)[:, :n]
+    boots = d[idx].mean(axis=1)
+    se = float(boots.std(ddof=1))
+    return {"n": n, "mean_diff": float(d.mean()), "se": se, "t": float(d.mean() / se) if se > 0 else float("nan")}

@@ -67,7 +67,7 @@ def config_fingerprint(cfg: Config) -> str:
         "costs": asdict(cfg.costs),
         "risk": asdict(cfg.risk),
         "run": {k: getattr(cfg.run, k) for k in ("symbol", "timeframe", "initial_cash", "duration_days",
-                                                  "end_action")},
+                                                  "end_action", "instrument")},
     }
     blob = json.dumps(material, sort_keys=True, default=str).encode()
     return hashlib.sha256(blob).hexdigest()[:16]

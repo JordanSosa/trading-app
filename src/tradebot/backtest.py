@@ -39,6 +39,25 @@ class BacktestResult:
     state: EngineState
 
 
+def funding_per_bar(open_ms: np.ndarray, interval_ms: int, funding: pd.Series | None) -> np.ndarray:
+    """Sum of funding rates settled inside each bar, i.e. at times in (open, open + interval].
+
+    A settlement at 08:00 is booked at the close of the 07:00 bar, using that
+    bar's close as the mark price.
+    """
+    out = np.zeros(len(open_ms))
+    if funding is None or len(funding) == 0 or len(open_ms) == 0:
+        return out
+    t = np.asarray(funding.index, dtype="int64")
+    r = np.asarray(funding.to_numpy(), dtype="float64")
+    close_ms = open_ms + interval_ms
+    pos = np.searchsorted(close_ms, t, side="left")      # first bar whose close >= t
+    ok = (pos < len(open_ms))
+    ok[ok] &= open_ms[pos[ok]] < t[ok]
+    np.add.at(out, pos[ok], r[ok])
+    return out
+
+
 @dataclass
 class Arrays:
     ms: np.ndarray
@@ -48,17 +67,21 @@ class Arrays:
     c: np.ndarray
     target: np.ndarray
     stop: np.ndarray
+    funding: np.ndarray
 
     @classmethod
-    def build(cls, candles: pd.DataFrame, signals: pd.DataFrame) -> "Arrays":
+    def build(cls, candles: pd.DataFrame, signals: pd.DataFrame, funding: pd.Series | None = None,
+              interval_ms: int = 3_600_000) -> "Arrays":
+        ms = index_ms(candles.index)
         return cls(
-            ms=index_ms(candles.index),
+            ms=ms,
             o=candles["open"].to_numpy(dtype="float64"),
             h=candles["high"].to_numpy(dtype="float64"),
             l=candles["low"].to_numpy(dtype="float64"),
             c=candles["close"].to_numpy(dtype="float64"),
             target=np.nan_to_num(signals["target"].to_numpy(dtype="float64"), nan=0.0),
             stop=signals["stop_dist"].to_numpy(dtype="float64"),
+            funding=funding_per_bar(ms, interval_ms, funding),
         )
 
 
@@ -78,11 +101,11 @@ def _bounds(ms: np.ndarray, start: str | pd.Timestamp | None, end: str | pd.Time
 def run_backtest(candles: pd.DataFrame, strategy: Strategy, cfg: Config,
                  start: str | None = None, end: str | None = None,
                  signals: pd.DataFrame | None = None, initial_cash: float | None = None,
-                 campaign_stop: bool = False) -> BacktestResult:
+                 campaign_stop: bool = False, funding: pd.Series | None = None) -> BacktestResult:
     """Continuous simulation. The campaign stop-loss is a property of a finite
     30-day run, so it is disabled here unless ``campaign_stop=True``."""
     sig = signals if signals is not None else strategy.signals(candles)
-    a = Arrays.build(candles, sig)
+    a = Arrays.build(candles, sig, funding, cfg.run.timeframe_ms)
     i0, i1 = _bounds(a.ms, start, end)
     params = EngineParams.from_config(cfg)
     if not campaign_stop:
@@ -90,9 +113,9 @@ def run_backtest(candles: pd.DataFrame, strategy: Strategy, cfg: Config,
     cash = initial_cash if initial_cash is not None else cfg.run.initial_cash
     eng = Engine(params, EngineState.fresh(cash))
     on_close = eng.on_close
-    ms, o, h, l, c, tgt, sd = a.ms, a.o, a.h, a.l, a.c, a.target, a.stop
+    ms, o, h, l, c, tgt, sd, fu = a.ms, a.o, a.h, a.l, a.c, a.target, a.stop, a.funding
     for i in range(i0, i1):
-        on_close(int(ms[i]), o[i], h[i], l[i], c[i], tgt[i], sd[i])
+        on_close(int(ms[i]), o[i], h[i], l[i], c[i], tgt[i], sd[i], fu[i])
     eq = equity_frame(eng.equity)
     trades = pd.DataFrame(eng.trades)
     trips = pd.DataFrame(eng.trips)
@@ -105,21 +128,22 @@ def run_backtest(candles: pd.DataFrame, strategy: Strategy, cfg: Config,
 
 def run_campaigns(candles: pd.DataFrame, strategy: Strategy, cfg: Config,
                   start: str | None = None, end: str | None = None, days: float = 30.0,
-                  step_hours: int = 24, signals: pd.DataFrame | None = None) -> pd.DataFrame:
+                  step_hours: int = 24, signals: pd.DataFrame | None = None,
+                  funding: pd.Series | None = None) -> pd.DataFrame:
     """Simulate independent ``days``-long paper runs started every ``step_hours``.
 
     Every campaign must fit entirely inside [start, end]; the final flatten
     executes at the open of the bar after the campaign ends.
     """
     sig = signals if signals is not None else strategy.signals(candles)
-    a = Arrays.build(candles, sig)
+    a = Arrays.build(candles, sig, funding, cfg.run.timeframe_ms)
     i0, i1 = _bounds(a.ms, start, end)
     params = replace(EngineParams.from_config(cfg), end_action="flatten")
     cash = cfg.run.initial_cash
     span_ms = int(days * DAY_MS)
     step_ms = step_hours * 3_600_000
     rows = []
-    ms, o, h, l, c, tgt, sd = a.ms, a.o, a.h, a.l, a.c, a.target, a.stop
+    ms, o, h, l, c, tgt, sd, fu = a.ms, a.o, a.h, a.l, a.c, a.target, a.stop, a.funding
     if i1 <= i0:
         return pd.DataFrame()
     t = int(ms[i0])
@@ -140,14 +164,17 @@ def run_campaigns(candles: pd.DataFrame, strategy: Strategy, cfg: Config,
         eng = Engine(params, state, record_equity=False)
         on_close = eng.on_close
         for i in range(s, e):
-            on_close(int(ms[i]), o[i], h[i], l[i], c[i], tgt[i], sd[i])
+            on_close(int(ms[i]), o[i], h[i], l[i], c[i], tgt[i], sd[i], fu[i])
         if not state.ended:  # only possible with irregular data; force the end
             state.ended = True
             state.pending = None if eng.is_flat(c[e - 1]) else {"target": 0.0, "reason": "campaign end",
                                                                  "stop_dist": None}
         eng.on_open(int(ms[e]), o[e])
         # Liquidation value (normally already flat after the end-of-campaign exit).
-        final = state.cash + state.qty * o[e] * (1.0 - params.slippage) * (1.0 - params.fee_rate)
+        # Liquidation value of any residual position (long or short) after costs.
+        q = state.qty
+        px = o[e] * ((1.0 - params.slippage) if q > 0 else (1.0 + params.slippage))
+        final = state.cash + q * px - abs(q) * px * params.fee_rate
         rows.append({
             "start": pd.Timestamp(start_ms, unit="ms", tz="UTC"),
             "return": final / cash - 1.0,
@@ -155,6 +182,7 @@ def run_campaigns(candles: pd.DataFrame, strategy: Strategy, cfg: Config,
             "n_trades": state.trade_count,
             "time_in_market": state.in_market_bars / max(state.bars_processed, 1),
             "fees": state.fees_paid,
+            "funding": state.funding_paid,
             "stopped": state.stopped,
             "bh_return": o[e] / o[s] - 1.0,
         })

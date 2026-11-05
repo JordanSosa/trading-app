@@ -41,6 +41,9 @@ class RunConfig:
     state_dir: str = "state"
     # Only paper trading is implemented. Anything else is refused.
     mode: str = "paper"
+    # "spot": long/flat BTC against USDT. "perp": USDT-margined perpetual
+    # futures (needed for short positions), which pays/receives funding.
+    instrument: str = "spot"
 
     @property
     def timeframe_ms(self) -> int:
@@ -66,6 +69,9 @@ class CostConfig:
 class RiskConfig:
     # Hard cap on BTC exposure as a fraction of equity (spot, no leverage).
     max_exposure: float = 1.0
+    # Largest short exposure as a fraction of equity (0 = long/flat only).
+    # Requires run.instrument = "perp".
+    max_short: float = 0.0
     # Skip rebalances smaller than this fraction of equity (fee control).
     # Entries from flat and full exits are never skipped.
     min_rebalance: float = 0.10
@@ -194,7 +200,13 @@ def validate(cfg: Config) -> None:
     if c.qty_step <= 0 or c.min_notional < 0:
         raise ConfigError("qty_step must be > 0 and min_notional >= 0")
     if not 0 < k.max_exposure <= 1.0:
-        raise ConfigError("max_exposure must be in (0, 1] (spot, no leverage)")
+        raise ConfigError("max_exposure must be in (0, 1] (no leverage)")
+    if r.instrument not in ("spot", "perp"):
+        raise ConfigError("instrument must be 'spot' or 'perp'")
+    if not 0 <= k.max_short <= 1.0:
+        raise ConfigError("max_short must be in [0, 1] (no leverage)")
+    if k.max_short > 0 and r.instrument != "perp":
+        raise ConfigError("short exposure (max_short > 0) requires run.instrument = 'perp'")
     if not 0 <= k.min_rebalance < 1:
         raise ConfigError("min_rebalance must be in [0, 1)")
     if not 0 < k.circuit_breaker_dd < 1 or k.circuit_breaker_hours < 0:

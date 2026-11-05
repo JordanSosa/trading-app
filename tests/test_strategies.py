@@ -17,7 +17,7 @@ def test_strategy_contract(name, candles):
     sig = s.signals(candles)
     assert time.time() - t < 5.0, "signals too slow"
     tgt = sig["target"].dropna()
-    assert ((tgt >= 0) & (tgt <= 1)).all()
+    assert ((tgt >= -1) & (tgt <= 1)).all()
     sd = sig["stop_dist"].dropna()
     assert (sd >= 0).all()
     assert not np.isinf(sig.to_numpy()).any()
