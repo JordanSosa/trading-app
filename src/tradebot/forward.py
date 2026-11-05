@@ -229,13 +229,20 @@ def tick(cfg: Config, store: StateStore, md: DataSource | None = None, now_ms: i
         tgt = sig["target"].to_numpy()
         sd = sig["stop_dist"].to_numpy()
         fund = np.zeros(len(candles))
+        funding_warning = None
         if cfg.run.instrument != "spot" and new_mask.any():
             try:
                 fund = funding_per_bar(open_ms, step, md.fetch_funding(now_ms))
             except ProviderError as exc:
-                return _record_failure(store, doc, now_ms, f"funding data unavailable: {exc}", notifier)
+                # Funding over the few bars a tick replays is tiny (~0.01% per 8h
+                # of the position), so an outage must not stall trading: book zero
+                # and record a warning in the audit trail.
+                funding_warning = f"funding data unavailable, booked as 0 for this tick: {exc}"
+                log.warning(funding_warning)
         engine = Engine(params, state)
         bars_before = state.bars_processed
+        if funding_warning:
+            engine._event(now_ms, "warning", funding_warning)
         idx = [i for i in range(len(candles)) if new_mask[i]]
         if idx:
             expected_first = (state.last_close_ms or open_ms[idx[0]] - step) + step

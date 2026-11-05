@@ -10,15 +10,20 @@ duration_days = 30
 end_action = "flatten"      # sell to USDT when the 30 days are up
 state_dir = "state"
 mode = "paper"              # the only supported mode
+# Longs on spot (no funding), shorts on USDT-margined perpetual futures.
+# Long-only alternative: instrument = "spot", max_short = 0, strategy breakout_dual.
+instrument = "hybrid"
 
 [costs]
-fee_rate = 0.001            # Binance spot taker fee, no BNB discount
+fee_rate = 0.001            # Binance spot taker fee, no BNB discount (long side)
+perp_fee_rate = 0.0005      # Binance USD-M perpetual taker fee (short side)
 slippage_bps = 3.0
 min_notional = 10.0
 qty_step = 0.00001
 
 [risk]
 max_exposure = 1.0
+max_short = 1.0             # short sleeve is volatility-sized 0.25-1.0 of equity, no leverage
 min_rebalance = 0.10
 circuit_breaker_dd = 0.10   # 10% below the high-water mark -> flat for 48h
 circuit_breaker_hours = 48.0
@@ -26,20 +31,20 @@ campaign_stop_loss = 0.15   # 15% below initial capital -> flat for the rest of 
 stop_rearm = true
 stop_cooldown_bars = 0
 
-# Selected in research/SELECTION.md (2018-2024 data), holdout in research/RESULTS.md.
-# Long-only dual breakout: half position on a 144h Donchian breakout above the
-# 600h EMA trend filter, half on a close above EMA600 + 3 x ATR168; each half
-# exits on its own channel/band. Exposure is 0, 0.5 or 1.
+# Selected in research/LONG_SHORT_DECISION.md (pre-registered rule, 2018-2024 data).
+# Longs: breakout_dual unchanged (0/50/100% BTC on spot). Shorts: only while the
+# long side is flat AND BTC closes below its 125-day average but not more than 35%
+# below it; enter on a fresh 10-day low, cover on a 2-day high or at the 35% floor;
+# size = clip(0.004 / (ATR168 / close), 0.25, 1.0) fixed at entry.
 [strategy]
-name = "breakout_dual"
+name = "lss_breakdown_vol"
 
 [strategy.params]
-entry_n = 144
-exit_n = 72
-trend_n = 600
-band_k = 3.0
-atr_n = 168
-keltner_weight = 0.5
+entry_n = 240
+exit_n = 48
+regime_n = 3000
+floor = 0.35
+short_risk = 0.004
 
 [data]
 providers = ["binance_vision", "okx", "kucoin", "gate", "coinbase"]

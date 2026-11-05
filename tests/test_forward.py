@@ -188,3 +188,22 @@ def test_replay_matches_campaign_with_shorts_and_funding(candles, tmp_path, inst
     assert st.funding_paid == pytest.approx(camp.iloc[0]["funding"], rel=1e-9, abs=1e-9)
     assert st.funding_paid != 0.0
     assert st.cash / 10_000 - 1 == pytest.approx(camp.iloc[0]["return"], abs=1e-12)
+
+
+def test_funding_outage_does_not_stall_hybrid_run(candles, tmp_path):
+    from tradebot.data.providers import ProviderError
+    cfg = make_cfg("_test_sma_ls", run={"instrument": "hybrid"}, risk={"max_short": 1.0},
+                   data={"sanity_check": False})
+    md = HistoricalMarketData(candles, H)
+
+    def boom(now_ms=None):
+        raise ProviderError("funding venues down")
+
+    md.fetch_funding = boom
+    store = StateStore(tmp_path)
+    md.now_ms = ms(candles.index[3000])
+    tick(cfg, store, md, now_ms=md.now_ms, write_reports=False)
+    md.now_ms += 3 * H
+    r = tick(cfg, store, md, now_ms=md.now_ms, write_reports=False)
+    assert r.ok and r.bars_processed == 3
+    assert any("funding data unavailable" in e["message"] for e in r.events)

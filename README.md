@@ -12,31 +12,58 @@ the backtest to full floating-point precision (see `tests/test_forward.py`).
 
 ## What to expect (read this first)
 
-No strategy can promise profit over a given 30 days, and this one doesn't. The
-selected strategy, **`breakout_dual`**, is a long-only BTC trend follower. It
-holds 0%, 50% or 100% BTC, based on a 6-day-high breakout and a 600-hour-EMA +
-3 x ATR band breakout, and sits in USDT otherwise. It was chosen from four
-independently researched and audited families (`research/SELECTION.md`), then
-tested once on 22 months of data it had never seen (`research/RESULTS.md`).
-The table shows 30-day campaigns that start flat with 10,000 USDT and end
-flat, one started every day, after fees.
+No strategy can promise a profit in any given 30 days, and this one doesn't.
 
-| 30-day campaigns | 2018-2024 (research) | 2025-01 to 2026-11 (unseen holdout) |
-|---|---:|---:|
-| Mean return | +4.89% | +0.63% |
-| Median return | 0.00% | -0.54% |
-| Ended in profit / flat / at a loss | 46.7% / 4.6% / 48.8% | 38.8% / 5.7% / 55.4% |
-| Bad month (5th percentile) | -8.4% | -6.7% |
-| Worst campaign | -15.9% | -12.0% |
-| Buy & hold, mean 30-day return | +4.61% | -0.21% |
-| Continuous result | CAGR 66%, max DD 32.5% | +12.5% (buy & hold -13.9%), max DD 22.4% |
+**Default strategy: `lss_breakdown_vol`** (long/short, hybrid mode):
 
-The edge is real but modest, and it shrank out of sample. The strategy's main
-strength is cutting losses compared with holding BTC. Profits come from
-occasionally catching a strong trend. As of 2026-11-05, BTC is 36% below its
-peak and the strategy is **flat**, so the run will start in USDT and only buy
-on a breakout.
+* **Long side:** the long-only breakout system `breakout_dual`. It holds 0%,
+  50% or 100% BTC on spot, based on a 6-day-high breakout and a
+  600-hour-EMA + 3 x ATR band breakout.
+* **Short side:** a bear-only "short sleeve" on BTC perpetual futures. It runs
+  only while the long side is flat and BTC is below its 125-day average (but
+  not more than 35% below it). It enters on a fresh 10-day low, covers on a
+  2-day high, and is volatility-sized at 0.25-1.0 of equity. It is short
+  about 11% of the time.
 
+Both sides were selected under pre-registered rules from independently
+researched and audited strategy families (`research/SELECTION.md`,
+`research/LONG_SHORT_PROTOCOL.md`, `research/LONG_SHORT_DECISION.md`). The
+table shows 30-day campaigns that start flat with 10,000 USDT and end flat,
+one started every day, after fees and funding.
+
+| 30-day campaigns | Long-only (spot) | **Long/short (hybrid, default)** | Buy & hold |
+|---|---:|---:|---:|
+| 2018-2024: mean return | +4.89% | **+6.24%** | +4.61% |
+| 2018-2024: ended in profit / at a loss | 47% / 49% | **57% / 43%** | 54% / 46% |
+| 2018-2024: bad month (5th percentile) | -8.4% | -9.1% | -28.2% |
+| 2018-2024: continuous max drawdown | 32.5% | **28.8%** | 81% |
+| 2024 only (out of sample for both): total | +54.7% | +58.3% | +121% |
+| 2025-01 to 2026-11 (see note): total | +12.5% | **+33.4%** | -13.9% |
+| 2025-01 to 2026-11: mean 30-day return | +0.63% | **+1.44%** | -0.21% |
+| 2025-01 to 2026-11: max drawdown | 22.4% | **16.6%** | 54% |
+
+How to read this:
+
+* **Long-only edge:** the long side beats buy-and-hold mainly by sitting out
+  bear markets. It lags in strong bull years (2020, 2023, 2024).
+* **What shorts add:** the short sleeve added about +1.2% per 30 days on
+  2018-2024. About 84% of that came from five crash trades (Feb 2018,
+  Nov 2018, Mar 2020, May 2021, Jan 2022). In 2024, the one fully
+  out-of-sample year, it added almost nothing. In bull markets it whipsaws
+  for small losses. Treat it as crash insurance with positive expected value,
+  not as profit on both sides every month.
+* **About the 2025-26 rows:** this period was evaluated after the long-only
+  strategy was chosen, but its 36% decline was already known when the short
+  research ran. The long/short numbers for it are therefore flattered by
+  hindsight and are not a clean test.
+* **Current state (2026-11-05):** BTC is above its 125-day average, so the
+  short sleeve is off and the strategy is flat. It buys on an upside breakout,
+  and shorts only if BTC drops below about 74k and makes a fresh 10-day low.
+
+**Running it for real later:** shorting needs a perpetual-futures account.
+Retail access is restricted in some countries (for example, in Australia
+ASIC licenses retail crypto derivatives and has penalised an unlicensed
+offering). The paper run needs no account.
 
 ## How it trades
 
@@ -53,8 +80,15 @@ market data ──► strategy (causal signals) ──► engine ──► paper
   venue and refuses to trade on a deviation above 1.5%.
 * **Decisions** use closed bars only. Fills happen at the **next bar's open**
   with 0.10% fee and 3 bps slippage per side, using Binance's lot size
-  (0.00001 BTC) and a 10 USDT minimum notional. Spot only: long or flat, no
-  leverage, no shorting.
+  (0.00001 BTC) and a 10 USDT minimum notional. No leverage: exposure is
+  between -100% and +100% of equity.
+* **Instruments** (`[run] instrument`):
+  * `spot`: long or flat only.
+  * `perp`: everything on USDT-margined perpetual futures (0.05% fees and
+    funding).
+  * `hybrid` (default): longs on spot, shorts on perpetuals. Shorts receive
+    or pay 8-hourly funding: the live run uses OKX's public funding history
+    (Bitget as fallback), and backtests use Binance's archive.
 * **Risk overlay** (`[risk]` in the config):
   * **Circuit breaker**: if equity falls 10% from its high-water mark, sell
     everything and pause for 48 hours.
@@ -134,6 +168,7 @@ no account needed; use a long random topic name), `TRADEBOT_DISCORD_WEBHOOK`,
 tradebot download                                   # full BTCUSDT 1h history (checksum-verified)
 tradebot strategies                                 # list strategies and defaults
 tradebot backtest --strategy breakout_dual --start 2022-01-01 --campaigns
+python scripts/ls_evaluate.py lss_breakdown_vol --mode hybrid   # long/short adoption metrics
 tradebot evaluate --period train                    # research score for a fixed period
 tradebot replay --out /tmp/replay                   # run the live code path over the last 31 days
 ```
@@ -163,7 +198,9 @@ The research protocol (`src/tradebot/research.py`):
 | `run` | `initial_cash` | 10000 | Paper USDT |
 | `run` | `duration_days` | 30 | Campaign length |
 | `run` | `end_action` | flatten | `flatten` sells to USDT at the end; `hold` keeps the position |
-| `costs` | `fee_rate` / `slippage_bps` | 0.001 / 3 | Per-side costs |
+| `run` | `instrument` | hybrid | `spot`, `perp` or `hybrid` (longs on spot, shorts on perps) |
+| `costs` | `fee_rate` / `perp_fee_rate` / `slippage_bps` | 0.001 / 0.0005 / 3 | Spot fee, perpetual fee, slippage |
+| `risk` | `max_short` | 1.0 | Largest short exposure (0 = long-only) |
 | `risk` | `circuit_breaker_dd` / `circuit_breaker_hours` | 0.10 / 48 | Drawdown pause |
 | `risk` | `campaign_stop_loss` | 0.15 | Hard stop below initial capital |
 | `risk` | `min_rebalance` | 0.10 | Fee-saving rebalance band |
@@ -183,7 +220,7 @@ src/tradebot/
   forward.py       idempotent live tick + daemon
   backtest.py      continuous backtest and rolling 30-day campaign simulator
   research.py      periods, score, causality/window checks
-  strategies/      buy_hold, trend, breakout, meanrev, regime, blend
+  strategies/      buy_hold, trend, breakout, meanrev, regime, blend, ls_* (long/short)
   data/            candle schema, causal resampling, live providers, archive downloader
   state.py         atomic JSON state + append-only CSV ledgers + file lock
   report.py        STATUS.md, equity.svg, dashboard.html, summary.json
