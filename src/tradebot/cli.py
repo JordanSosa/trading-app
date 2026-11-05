@@ -101,6 +101,9 @@ def cmd_tick(args: argparse.Namespace) -> int:
     except StateError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+    except Exception:  # unexpected bug: state was not advanced; fail loudly
+        logging.getLogger("tradebot").exception("tick crashed; state left unchanged")
+        return 3
     print(res.message)
     for t in res.trades:
         print(f"  fill: {t['side']} {t['qty']:.5f} BTC @ {t['price']:,.2f} ({t['reason']})")

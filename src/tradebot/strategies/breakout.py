@@ -9,8 +9,9 @@ The latch is vectorised (mark entry bars 1, exit bars 0, forward-fill the last
 mark), which only ever looks backwards, so ``compute(df.iloc[:k]).iloc[-1] ==
 compute(df).iloc[k-1]`` holds. Once at least one entry or exit event lies
 inside the supplied history the state no longer depends on where that history
-starts; with the default parameters that happens within days, far inside
-``warmup_bars``.
+starts. In-position spans without any event reached ~480 bars in 2017-2024,
+so ``warmup_bars`` leaves a wide margin (checked with the warmup+1 window test
+in ``research.check_causal`` on the full research data).
 
 Research notes, tables and parameter sensitivity: ``research/breakout.md``.
 Protective intrabar ATR stops (``stop_dist``) were tested and are *off* by
@@ -100,9 +101,11 @@ class DonchianBreakout(Strategy):
         p = self.params
         need = max(p["entry_n"], p["exit_n"], p["trend_n"])
         if p["stop_atr"] > 0:
-            need = max(need, 6 * p["atr_n"])
-        # plus room for at least one latch event after the windows are full
-        return need + 2 * max(p["entry_n"], p["exit_n"])
+            need = max(need, 12 * p["atr_n"])  # Wilder ATR seed weight < 1e-5
+        # The latch state only synchronises at an entry/exit event; in-position
+        # spans without one reached ~480 bars in 2017-2024, so leave ample room
+        # (verified with research.check_causal's warmup+1 window check).
+        return need + 10 * max(p["entry_n"], p["exit_n"])
 
     def compute(self, df: pd.DataFrame) -> pd.DataFrame:
         p = self.params
@@ -142,8 +145,10 @@ class KeltnerBreakout(Strategy):
     @property
     def warmup_bars(self) -> int:
         p = self.params
-        # EMA/Wilder recursions: initial-value weight < 0.1% after 4 EMA spans / 6 ATR periods
-        return max(4 * p["ema_n"], 6 * p["atr_n"])
+        # EMA/Wilder recursions: initial-value weight ~1e-9 after 10 EMA spans
+        # and ~1e-5 after 12 ATR periods, so a rolling live window reproduces
+        # the full-history signals.
+        return max(10 * p["ema_n"], 12 * p["atr_n"])
 
     def compute(self, df: pd.DataFrame) -> pd.DataFrame:
         p = self.params
@@ -190,7 +195,8 @@ class DualBreakout(Strategy):
     @property
     def warmup_bars(self) -> int:
         p = self.params
-        return max(4 * p["trend_n"], 6 * p["atr_n"], 3 * max(p["entry_n"], p["exit_n"]))
+        # See KeltnerBreakout.warmup_bars; the Donchian latch needs far less.
+        return max(10 * p["trend_n"], 12 * p["atr_n"], 10 * max(p["entry_n"], p["exit_n"]))
 
     def compute(self, df: pd.DataFrame) -> pd.DataFrame:
         p = self.params
