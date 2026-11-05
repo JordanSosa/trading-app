@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches-ignore: [paper-state]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Unit tests (offline)
+        run: pytest -m "not network"
+      - name: Live data smoke test
+        # Exchanges occasionally rate-limit CI IPs; do not fail the build on it.
+        continue-on-error: true
+        run: pytest -m network

@@ -1,0 +1,104 @@
+name: Paper trade BTC/USDT
+
+# Runs one idempotent tick every 15 minutes. The engine replays every 1h bar
+# that closed since the previous tick, so delayed or skipped cron runs are
+# caught up exactly. Run state (ledgers, equity curve, STATUS.md) is committed
+# to the orphan branch `paper-state`, never to the code branch.
+#
+# Scheduled workflows only run from the repository's default branch.
+
+on:
+  schedule:
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch:
+    inputs:
+      reset:
+        description: "Archive the current run and start a fresh 30-day run"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: paper-trade
+  cancel-in-progress: false
+
+env:
+  STATE_BRANCH: paper-state
+  STATE_DIR: state-branch
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install .
+
+      - name: Check out run state
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --heads origin "$STATE_BRANCH" >/dev/null; then
+            git fetch --depth=1 origin "$STATE_BRANCH"
+            git worktree add --detach "$STATE_DIR" FETCH_HEAD
+            git -C "$STATE_DIR" switch -c "$STATE_BRANCH"
+          else
+            git worktree add --detach "$STATE_DIR"
+            git -C "$STATE_DIR" switch --orphan "$STATE_BRANCH"
+          fi
+          printf '.tick.lock\n*.tmp\n' > "$STATE_DIR/.gitignore"
+
+      - name: Reset run (manual)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.reset }}
+        run: tradebot reset --config config/paper.toml --state-dir "$STATE_DIR" --yes
+
+      - name: Tick
+        id: tick
+        env:
+          TRADEBOT_DISCORD_WEBHOOK: ${{ secrets.TRADEBOT_DISCORD_WEBHOOK }}
+          TRADEBOT_SLACK_WEBHOOK: ${{ secrets.TRADEBOT_SLACK_WEBHOOK }}
+          TRADEBOT_TELEGRAM_BOT_TOKEN: ${{ secrets.TRADEBOT_TELEGRAM_BOT_TOKEN }}
+          TRADEBOT_TELEGRAM_CHAT_ID: ${{ secrets.TRADEBOT_TELEGRAM_CHAT_ID }}
+          TRADEBOT_NTFY_TOPIC: ${{ secrets.TRADEBOT_NTFY_TOPIC }}
+        run: |
+          set +e
+          tradebot tick --config config/paper.toml --state-dir "$STATE_DIR" --github-summary
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Commit run state
+        run: |
+          set -euo pipefail
+          cd "$STATE_DIR"
+          [ -f STATUS.md ] && cp STATUS.md README.md
+          git add -A
+          if git diff --cached --quiet; then
+            echo "no state change"; exit 0
+          fi
+          git -c user.name="paper-trader[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -q -m "tick $(date -u +%Y-%m-%dT%H:%MZ)"
+          for i in 1 2 3 4; do
+            if git push -q origin "HEAD:$STATE_BRANCH"; then exit 0; fi
+            sleep $((2 ** i))
+            git pull -q --rebase origin "$STATE_BRANCH" || true
+          done
+          echo "push failed after retries" >&2
+          exit 1
+
+      - name: Fail on persistent tick errors
+        # Soft failures (e.g. one exchange outage) exit 0; repeated failures exit 2
+        # so GitHub's failed-workflow e-mail alerts you.
+        if: ${{ steps.tick.outputs.exit_code != '0' }}
+        run: |
+          echo "tradebot tick exited with ${{ steps.tick.outputs.exit_code }}" >&2
+          exit 1
