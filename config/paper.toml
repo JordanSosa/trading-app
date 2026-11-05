@@ -1,0 +1,14 @@
+# Paper-trading configuration. PROVISIONAL: the final strategy selection is
+# pending the remaining research families and audits (see research/).
+
+[run]
+symbol = "BTCUSDT"
+timeframe = "1h"
+initial_cash = 10000.0
+duration_days = 30
+end_action = "flatten"
+state_dir = "state"
+mode = "paper"
+
+[strategy]
+name = "breakout_dual"
