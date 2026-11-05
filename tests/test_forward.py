@@ -129,3 +129,41 @@ def test_reports_are_generated(candles, scfg, tmp_path):
     assert "<svg" in (tmp_path / "equity.svg").read_text()
     assert "Paper money only" in (tmp_path / "STATUS.md").read_text()
     json.loads((tmp_path / "state.json").read_text())  # strict JSON (no NaN)
+
+
+def test_mid_bar_start_matches_campaign_at_that_bar(candles, scfg, tmp_path):
+    strat = get_strategy("_test_sma_stop")
+    bar0 = candles.index[2100]
+    camp = run_campaigns(candles, strat, scfg, str(bar0), None, days=30, step_hours=10**6)
+    replay(scfg, candles, bar0 + pd.Timedelta(minutes=37), bar0 + pd.Timedelta(days=32), tmp_path,
+           tick_minutes=30)
+    st = EngineState.from_dict(StateStore(tmp_path).load()["engine"])
+    assert st.status == "completed"
+    assert st.cash / 10_000 - 1 == pytest.approx(camp.iloc[0]["return"], abs=1e-12)
+
+
+def test_completed_run_is_frozen(candles, scfg, tmp_path):
+    cfg = make_cfg("_test_sma_stop", run={"duration_days": 2.0}, data={"sanity_check": False})
+    start = candles.index[2300]
+    replay(cfg, candles, start, start + pd.Timedelta(days=3), tmp_path, tick_minutes=60)
+    store = StateStore(tmp_path)
+    doc = store.load()
+    assert doc["run"]["completed_at"] and doc["run"]["final_price"]
+
+    class Boom:
+        def fetch(self, *a, **k):
+            raise AssertionError("completed runs must not fetch data")
+
+    r = tick(cfg, store, Boom(), now_ms=ms(start + pd.Timedelta(days=10)))
+    assert r.status == "completed"
+    assert store.load() == doc
+
+
+def test_run_window_changes_are_refused_even_with_accept(candles, scfg, tmp_path):
+    md = HistoricalMarketData(candles, H)
+    md.now_ms = ms(candles.index[3000])
+    store = StateStore(tmp_path)
+    tick(scfg, store, md, now_ms=md.now_ms, write_reports=False)
+    other = make_cfg("_test_sma_stop", run={"initial_cash": 50_000.0}, data={"sanity_check": False})
+    with pytest.raises(StateError, match="initial_cash"):
+        tick(other, store, md, now_ms=md.now_ms + H, accept_config_change=True, write_reports=False)

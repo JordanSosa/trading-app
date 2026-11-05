@@ -52,3 +52,20 @@ def test_resample_causal_never_exposes_forming_bar(candles):
         assert np.allclose(a, b, equal_nan=True)
     daily = resample_causal(candles, "1D", H)
     assert daily.iloc[:23]["close"].isna().all() and not np.isnan(daily.iloc[23]["close"])
+
+
+@pytest.mark.parametrize("rule", ["4h", "1D", "3D", "5h"])
+def test_resample_causal_is_window_independent(candles, rule):
+    full = resample_causal(candles, rule, H)
+    for k in (3100, 4444, 5999):
+        win = resample_causal(candles.iloc[k - 3000:k], rule, H)
+        assert np.allclose(win.iloc[-1].to_numpy(), full.iloc[k - 1].to_numpy(), equal_nan=True)
+
+
+def test_resample_causal_drops_truncated_first_bin_and_checks_interval(candles):
+    late = candles.iloc[13:]  # starts at 13:00, mid-day
+    daily = resample_causal(late, "1D", H)
+    first_valid = daily["open"].first_valid_index()
+    assert daily.loc[first_valid, "open"] == pytest.approx(candles.iloc[24]["open"])
+    with pytest.raises(ValueError):
+        resample_causal(candles, "4h", 4 * H)  # wrong (too coarse) base interval claimed

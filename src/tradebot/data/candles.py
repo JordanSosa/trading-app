@@ -118,15 +118,26 @@ def resample_causal(df: pd.DataFrame, rule: str, base_interval_ms: int) -> pd.Da
     """
     if df.empty:
         return df.copy()
-    htf = df.resample(rule, label="left", closed="left").agg(
+    td = pd.Timedelta(rule)
+    htf_ms = td.value // 1_000_000
+    if htf_ms < base_interval_ms or htf_ms % base_interval_ms:
+        raise ValueError(f"rule {rule!r} must be a whole multiple of the base interval")
+    if len(df) > 1:
+        actual = int(np.diff(index_ms(df.index)).min())
+        if actual < base_interval_ms:
+            raise ValueError(f"base_interval_ms={base_interval_ms} but the data has {actual} ms bars; "
+                             "a wrong base interval would expose forming higher-timeframe bars")
+    # Bins anchored to the Unix epoch so they do not depend on where the input
+    # window starts (the forward run computes on a rolling window).
+    htf = df.resample(td, label="left", closed="left", origin="epoch").agg(
         {"open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum"}
     )
     htf = htf.dropna(subset=["close"])
+    # The first bin is truncated when the data starts mid-bin; never expose it.
+    if len(htf) and df.index[0] > htf.index[0]:
+        htf = htf.iloc[1:]
     if htf.empty:
         return pd.DataFrame(np.nan, index=df.index, columns=COLUMNS)
-    htf_ms = pd.Timedelta(rule).value // 1_000_000
-    if htf_ms < base_interval_ms or htf_ms % base_interval_ms:
-        raise ValueError(f"rule {rule!r} must be a whole multiple of the base interval")
     htf_close_ms = index_ms(htf.index) + htf_ms
     base_close_ms = index_ms(df.index) + base_interval_ms
     # For every base bar, the last HTF bar whose close <= that base bar's close.

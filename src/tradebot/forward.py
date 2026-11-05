@@ -23,7 +23,7 @@ import pandas as pd
 from . import __version__
 from .config import Config
 from .data.candles import index_ms
-from .data.providers import FetchResult, MarketData, ProviderError
+from .data.providers import FetchResult, HttpClient, MarketData, ProviderError
 from .engine import Engine, EngineParams, EngineState
 from .state import StateError, StateStore, iso
 from .strategies import get_strategy
@@ -90,13 +90,17 @@ def _clean(obj: Any) -> Any:
 def new_run_document(cfg: Config, data: FetchResult, now_ms: int) -> dict[str, Any]:
     strat = resolved_strategy(cfg)
     step = cfg.run.timeframe_ms
-    end_ms = now_ms + int(cfg.run.duration_days * 86_400_000)
-    st = EngineState.fresh(cfg.run.initial_cash, start_ms=now_ms, end_ms=end_ms)
+    # Anchor the run to the wall-clock bar grid, not to the provider response:
+    # bar0 is the bar forming at start. Its open predates the bot, so it is not
+    # tradeable; the first decision is made at its close and the campaign ends
+    # exactly duration_days later on the bar grid. This is the same definition
+    # run_campaigns uses for a campaign starting at bar0.
+    bar0 = now_ms - now_ms % step
+    end_ms = bar0 + int(cfg.run.duration_days * 86_400_000)
+    st = EngineState.fresh(cfg.run.initial_cash, start_ms=bar0, end_ms=end_ms)
     last_closed_ms = int(index_ms(data.candles.index)[-1])
-    st.last_close_ms = last_closed_ms
-    # The bar that is forming right now opened before the bot existed, so its
-    # open is not tradeable; the first decision happens when it closes.
-    st.last_open_ms = data.forming_open_ms if data.forming_open_ms is not None else last_closed_ms
+    st.last_close_ms = max(last_closed_ms, bar0 - step)
+    st.last_open_ms = bar0
     start_price = data.forming_close if data.forming_close is not None else float(data.candles["close"].iloc[-1])
     st.last_price = start_price
     return {
@@ -113,6 +117,7 @@ def new_run_document(cfg: Config, data: FetchResult, now_ms: int) -> dict[str, A
             "duration_days": cfg.run.duration_days,
             "start_ms": now_ms,
             "start_time": iso(now_ms),
+            "first_bar_ms": bar0,
             "end_ms": end_ms,
             "end_time": iso(end_ms),
             "start_price": start_price,
@@ -134,7 +139,8 @@ def tick(cfg: Config, store: StateStore, md: DataSource | None = None, now_ms: i
          accept_config_change: bool = False, notifier: Any = None, write_reports: bool = True) -> TickResult:
     """Advance the paper run to ``now_ms``. Safe to call any number of times."""
     now_ms = now_ms if now_ms is not None else _now_ms()
-    md = md or MarketData(cfg.data.providers)
+    md = md or MarketData(cfg.data.providers, http=HttpClient(timeout_s=cfg.data.request_timeout_s,
+                                                              retries=cfg.data.retries))
     strategy = resolved_strategy(cfg)
     params = EngineParams.from_config(cfg)
     step = cfg.run.timeframe_ms
@@ -143,9 +149,23 @@ def tick(cfg: Config, store: StateStore, md: DataSource | None = None, now_ms: i
 
     with store.lock():
         doc = store.load()
+        if doc is not None and EngineState.from_dict(doc["engine"]).status == "completed":
+            # Finished runs are frozen: no data fetch, no re-marking of results.
+            if write_reports:
+                _reports(store, doc, cfg)
+            st_done = EngineState.from_dict(doc["engine"])
+            return TickResult(True, "completed", "run already completed; nothing to do",
+                              equity=st_done.cash + st_done.qty * (doc["run"].get("final_price") or 0.0),
+                              price=doc["run"].get("final_price"))
         if doc is not None:
             fp = config_fingerprint(cfg)
             if doc["run"]["fingerprint"] != fp:
+                fixed = {"symbol": cfg.run.symbol, "timeframe": cfg.run.timeframe,
+                         "initial_cash": cfg.run.initial_cash, "duration_days": cfg.run.duration_days}
+                changed = [k for k, v in fixed.items() if doc["run"].get(k) != v]
+                if changed:
+                    raise StateError(f"cannot change {', '.join(changed)} of a running campaign; "
+                                     "start a new run with `tradebot reset`")
                 if not accept_config_change:
                     raise StateError(
                         "configuration changed since this run started (fingerprint "
@@ -180,16 +200,6 @@ def tick(cfg: Config, store: StateStore, md: DataSource | None = None, now_ms: i
                               price=doc["run"]["start_price"], provider=data.provider)
 
         state = EngineState.from_dict(doc["engine"])
-        if state.status == "completed":
-            doc["health"].update({"last_tick_at": iso(now_ms), "ticks": doc["health"].get("ticks", 0) + 1})
-            if data.forming_close is not None:
-                doc["health"]["last_live_price"] = data.forming_close
-                doc["health"]["last_live_price_at"] = iso(now_ms)
-            store.save(_clean(doc))
-            if write_reports:
-                _reports(store, doc, cfg)
-            return TickResult(True, "completed", "run already completed; nothing to do",
-                              equity=state.last_equity, price=state.last_price, provider=data.provider)
 
         candles = data.candles
         open_ms = index_ms(candles.index)
@@ -231,7 +241,8 @@ def tick(cfg: Config, store: StateStore, md: DataSource | None = None, now_ms: i
                                 float(r["close"]), float(tgt[i]), float(sd[i]))
 
         # 4) execute pending order at the open of the forming bar -------------
-        if data.forming_open_ms is not None and data.forming_open is not None:
+        if (data.forming_open_ms is not None and data.forming_open is not None
+                and math.isfinite(data.forming_open) and data.forming_open > 0):
             if state.last_close_ms is not None and data.forming_open_ms == state.last_close_ms + step:
                 engine.on_open(int(data.forming_open_ms), float(data.forming_open))
 
@@ -255,6 +266,8 @@ def tick(cfg: Config, store: StateStore, md: DataSource | None = None, now_ms: i
         })
         if state.status == "completed" and not doc["run"].get("completed_at"):
             doc["run"]["completed_at"] = iso(now_ms)
+            # Freeze the mark used for the final result and the B&H comparison.
+            doc["run"]["final_price"] = state.last_price
             fin = {"ts_ms": now_ms, "kind": "end",
                    "message": f"run completed: final equity {state.cash + state.qty * (live or 0):,.2f} USDT "
                               f"({(state.cash + state.qty * (live or 0)) / state.initial_equity - 1:+.2%})"}
@@ -311,8 +324,14 @@ def _reports(store: StateStore, doc: dict[str, Any], cfg: Config) -> None:
 
 
 def run_daemon(cfg: Config, store: StateStore, md: DataSource | None = None, notifier: Any = None,
-               offset_s: float = 20.0, max_sleep_s: float = 300.0) -> None:
-    """Tick shortly after every bar close until the run completes or SIGTERM."""
+               offset_s: float = 20.0, max_sleep_s: float = 300.0, max_crashes: int = 20) -> int:
+    """Tick shortly after every bar close until SIGTERM.
+
+    Returns a process exit code: 0 after a clean stop, 1 on a configuration or
+    state error or after ``max_crashes`` consecutive crashes (so supervisors
+    surface the failure instead of silently restarting). Once the run has
+    completed the daemon idles (no API calls) until it is stopped.
+    """
     stop = {"flag": False}
 
     def _handler(signum, frame):  # noqa: ARG001
@@ -322,21 +341,47 @@ def run_daemon(cfg: Config, store: StateStore, md: DataSource | None = None, not
     signal.signal(signal.SIGTERM, _handler)
     signal.signal(signal.SIGINT, _handler)
     step_s = cfg.run.timeframe_ms / 1000
+    crashes = 0
+    completed = False
+
+    def _alert(msg: str) -> None:
+        if notifier:
+            try:
+                notifier.send_event({"ts_ms": _now_ms(), "kind": "alert", "message": msg}, {})
+            except Exception:  # noqa: BLE001
+                log.exception("alert failed")
+
     while not stop["flag"]:
-        try:
-            res = tick(cfg, store, md, notifier=notifier)
-            log.info("tick: %s", res.message)
-            if res.status == "completed":
-                log.info("run completed; daemon exiting")
-                return
-        except StateError as exc:
-            log.error("tick refused: %s", exc)
-            return
-        except Exception:
-            log.exception("tick crashed; will retry")
+        if not completed:
+            try:
+                res = tick(cfg, store, md, notifier=notifier)
+                crashes = 0
+                log.info("tick: %s", res.message)
+                if res.status == "completed":
+                    log.info("run completed; idling until stopped (no further API calls)")
+                    completed = True
+            except StateError as exc:
+                log.error("tick refused: %s", exc)
+                _alert(f"daemon stopped: {exc}")
+                return 1
+            except Exception as exc:  # noqa: BLE001
+                crashes += 1
+                log.exception("tick crashed (%d in a row); will retry", crashes)
+                if crashes == 3:
+                    _alert(f"tick crashed 3 times in a row: {type(exc).__name__}: {exc}")
+                if crashes >= max_crashes:
+                    _alert(f"daemon giving up after {crashes} consecutive crashes")
+                    return 1
         now = time.time()
-        next_close = (math.floor(now / step_s) + 1) * step_s + offset_s
-        sleep_for = min(max(5.0, next_close - now), max_sleep_s)
+        if completed:
+            sleep_for = 60.0
+        else:
+            next_close = (math.floor(now / step_s) + 1) * step_s + offset_s
+            sleep_for = min(max(5.0, next_close - now), max_sleep_s)
         end = time.time() + sleep_for
-        while not stop["flag"] and time.time() < end:
-            time.sleep(min(1.0, end - time.time()))
+        while not stop["flag"]:
+            remaining = end - time.time()
+            if remaining <= 0:
+                break
+            time.sleep(min(1.0, remaining))
+    return 0

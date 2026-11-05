@@ -31,7 +31,10 @@ def _pct(x: Any, nd: int = 2, sign: bool = True) -> str:
 def build_summary(store: StateStore, doc: dict[str, Any]) -> dict[str, Any]:
     run, health = doc["run"], doc["health"]
     st = EngineState.from_dict(doc["engine"])
-    live = health.get("last_live_price") or st.last_price or run["start_price"]
+    if run.get("completed_at") and run.get("final_price"):
+        live = run["final_price"]  # results are frozen at the campaign end
+    else:
+        live = health.get("last_live_price") or st.last_price or run["start_price"]
     equity = st.cash + st.qty * live
     initial = st.initial_equity
     now_ms = pd.Timestamp(health.get("last_tick_at") or doc["updated_at"]).value // 1_000_000
@@ -75,7 +78,7 @@ def build_summary(store: StateStore, doc: dict[str, Any]) -> dict[str, Any]:
         "fees_paid": st.fees_paid,
         "max_drawdown": st.max_drawdown,
         "peak_equity": st.peak_equity,
-        "drawdown_now": 1.0 - equity / st.peak_equity if st.peak_equity else 0.0,
+        "drawdown_now": max(0.0, 1.0 - equity / max(st.peak_equity, equity)) if st.peak_equity else 0.0,
         "trades": int(len(trades)),
         "round_trips": int(len(trips)),
         "win_rate": float((trips["pnl"] > 0).mean()) if len(trips) else None,

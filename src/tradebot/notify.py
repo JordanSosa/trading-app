@@ -55,17 +55,22 @@ class Notifier:
         for ch in self.channels:
             try:
                 if ch == "discord":
-                    self._post(e["TRADEBOT_DISCORD_WEBHOOK"], json={"content": text[:1900]}, timeout=self.timeout_s)
+                    r = self._post(e["TRADEBOT_DISCORD_WEBHOOK"], timeout=self.timeout_s,
+                                   json={"content": text[:1900], "allowed_mentions": {"parse": []}})
                 elif ch == "slack":
-                    self._post(e["TRADEBOT_SLACK_WEBHOOK"], json={"text": text}, timeout=self.timeout_s)
+                    r = self._post(e["TRADEBOT_SLACK_WEBHOOK"], json={"text": text}, timeout=self.timeout_s)
                 elif ch == "telegram":
                     url = f"https://api.telegram.org/bot{e['TRADEBOT_TELEGRAM_BOT_TOKEN']}/sendMessage"
-                    self._post(url, json={"chat_id": e["TRADEBOT_TELEGRAM_CHAT_ID"], "text": text},
-                               timeout=self.timeout_s)
-                elif ch == "ntfy":
+                    r = self._post(url, json={"chat_id": e["TRADEBOT_TELEGRAM_CHAT_ID"], "text": text},
+                                   timeout=self.timeout_s)
+                else:  # ntfy
                     server = e.get("TRADEBOT_NTFY_SERVER", "https://ntfy.sh").rstrip("/")
-                    self._post(f"{server}/{e['TRADEBOT_NTFY_TOPIC']}", data=text.encode(),
-                               headers={"Title": title}, timeout=self.timeout_s)
+                    r = self._post(f"{server}/{e['TRADEBOT_NTFY_TOPIC']}", data=text.encode(),
+                                   headers={"Title": title}, timeout=self.timeout_s)
+                code = getattr(r, "status_code", 200)
+                if code >= 400:
+                    # Never log the URL: it contains the webhook secret.
+                    log.warning("notification via %s rejected: HTTP %s", ch, code)
             except Exception as exc:  # noqa: BLE001
                 log.warning("notification via %s failed: %s", ch, type(exc).__name__)
 

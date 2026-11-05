@@ -11,7 +11,9 @@ reachable from US-hosted runners such as GitHub Actions.
 
 from __future__ import annotations
 
+import json
 import logging
+import math
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -44,20 +46,37 @@ class HttpClient:
         self.session.headers.setdefault("User-Agent", USER_AGENT)
         self._sleep = sleep
 
+    max_json_bytes = 8 * 1024 * 1024
+    max_blob_bytes = 64 * 1024 * 1024
+
+    def _read(self, resp: requests.Response, limit: int, deadline: float) -> bytes:
+        """Read a streamed body with an overall deadline and a size cap."""
+        buf = bytearray()
+        for chunk in resp.iter_content(65536):
+            buf.extend(chunk)
+            if len(buf) > limit:
+                raise ProviderError(f"response larger than {limit} bytes")
+            if time.monotonic() > deadline:
+                raise ProviderError("response took too long")
+        return bytes(buf)
+
     def get_json(self, url: str, params: dict[str, Any] | None = None) -> Any:
         last_exc: Exception | None = None
         for attempt in range(self.retries):
+            fatal = False
             try:
-                resp = self.session.get(url, params=params, timeout=self.timeout_s)
-                if resp.status_code == 429 or resp.status_code >= 500:
-                    raise ProviderError(f"HTTP {resp.status_code} from {url}")
-                if resp.status_code >= 400:
-                    # 4xx other than 429 will not fix itself: fail fast.
-                    raise ProviderError(f"HTTP {resp.status_code} from {url}: {resp.text[:200]}")
-                return resp.json()
+                deadline = time.monotonic() + 2 * self.timeout_s
+                with self.session.get(url, params=params, timeout=self.timeout_s, stream=True) as resp:
+                    if resp.status_code == 429 or resp.status_code >= 500:
+                        raise ProviderError(f"HTTP {resp.status_code} from {url}")
+                    if resp.status_code >= 400:
+                        # 4xx other than 429 will not fix itself: fail fast.
+                        fatal = True
+                        raise ProviderError(f"HTTP {resp.status_code} from {url}")
+                    body = self._read(resp, self.max_json_bytes, deadline)
+                return json.loads(body)
             except (requests.RequestException, ValueError, ProviderError) as exc:
                 last_exc = exc
-                fatal = isinstance(exc, ProviderError) and "HTTP 4" in str(exc) and "HTTP 429" not in str(exc)
                 if fatal or attempt == self.retries - 1:
                     break
                 self._sleep(self.backoff_s * (2 ** attempt))
@@ -68,12 +87,13 @@ class HttpClient:
         last_exc: Exception | None = None
         for attempt in range(self.retries):
             try:
-                resp = self.session.get(url, timeout=max(self.timeout_s, 60.0))
-                if resp.status_code == 404:
-                    return None
-                if resp.status_code >= 400:
-                    raise ProviderError(f"HTTP {resp.status_code} from {url}")
-                return resp.content
+                deadline = time.monotonic() + max(self.timeout_s, 60.0) * 4
+                with self.session.get(url, timeout=max(self.timeout_s, 60.0), stream=True) as resp:
+                    if resp.status_code == 404:
+                        return None
+                    if resp.status_code >= 400:
+                        raise ProviderError(f"HTTP {resp.status_code} from {url}")
+                    return self._read(resp, self.max_blob_bytes, deadline)
             except (requests.RequestException, ProviderError) as exc:
                 last_exc = exc
                 if attempt < self.retries - 1:
@@ -270,6 +290,9 @@ class FetchResult:
 class MarketData:
     """Fetch candles from the first healthy provider in priority order."""
 
+    close_grace_ms = 2_000
+    max_forming_jump = 0.05  # forming open must be within 5% of the last close
+
     def __init__(self, provider_names: tuple[str, ...] | list[str], http: HttpClient | None = None,
                  clock: Callable[[], float] = time.time):
         unknown = [p for p in provider_names if p not in PROVIDERS]
@@ -286,9 +309,12 @@ class MarketData:
             if not prov.supports(interval):
                 continue
             try:
-                raw = prov.fetch(interval, closed_bars + 1)
+                # Read the clock BEFORE the request: a bar can only be final if
+                # its close time had passed when the exchange built the response.
+                # The grace absorbs exchange-side latency in finalising a bar.
                 now_ms = int(self.clock() * 1000)
-                closed, forming = split_closed(raw, now_ms, step)
+                raw = prov.fetch(interval, closed_bars + 1)
+                closed, forming = split_closed(raw, now_ms - self.close_grace_ms, step)
                 warns = validate(closed, interval_ms=step)
                 if len(closed) < min_bars:
                     raise ProviderError(f"only {len(closed)} closed bars (< {min_bars} required)")
@@ -300,6 +326,16 @@ class MarketData:
                     f_open = float(forming["open"])
                     f_close = float(forming["close"])
                     f_ms = int(forming.name.value // 1_000_000)
+                    ref = float(closed["close"].iloc[-1])
+                    sane = (math.isfinite(f_open) and math.isfinite(f_close) and f_open > 0 and f_close > 0
+                            and abs(f_open / ref - 1) <= self.max_forming_jump
+                            and f_ms == int(closed.index[-1].value // 1_000_000) + step)
+                    if not sane:
+                        # Its open is the execution price of forward fills; never
+                        # trade on an implausible value. The order then fills at
+                        # this bar's (validated) open once it has closed.
+                        warns.append(f"forming bar rejected (open {f_open}, last close {ref})")
+                        f_open = f_ms = f_close = None
                 return FetchResult(closed.iloc[-closed_bars:], f_open, f_ms, prov.name, warns, f_close)
             except Exception as exc:  # try the next provider
                 msg = f"{prov.name}: {exc}"

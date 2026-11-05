@@ -85,7 +85,7 @@ class RiskConfig:
 
 @dataclass(frozen=True)
 class StrategyConfig:
-    name: str = "ensemble_trend"
+    name: str = "buy_hold"
     params: dict[str, Any] = field(default_factory=dict)
 
 
@@ -143,6 +143,11 @@ def _build(cls: type, raw: dict[str, Any], section: str) -> Any:
     for key, value in raw.items():
         if key == "providers":
             value = tuple(value)
+        default = known[key].default
+        # TOML distinguishes 1 from 1.0; normalise so an unchanged config always
+        # produces the same run fingerprint.
+        if isinstance(default, float) and isinstance(value, int) and not isinstance(value, bool):
+            value = float(value)
         kwargs[key] = value
     return cls(**kwargs)
 
@@ -202,3 +207,6 @@ def validate(cfg: Config) -> None:
         raise ConfigError("lookback_bars must be >= 100")
     if not d.providers:
         raise ConfigError("at least one data provider is required")
+    from .strategies import available  # local import: strategies depend on config
+    if cfg.strategy.name not in available():
+        raise ConfigError(f"unknown strategy {cfg.strategy.name!r}; available: {available()}")

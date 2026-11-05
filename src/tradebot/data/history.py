@@ -27,10 +27,15 @@ log = logging.getLogger(__name__)
 ARCHIVE = "https://data.binance.vision/data/spot"
 
 
+MAX_ARCHIVE_MEMBER_BYTES = 64 * 1024 * 1024
+
+
 def _parse_archive_csv(raw: bytes, interval_ms: int | None = None) -> pd.DataFrame:
     with zipfile.ZipFile(io.BytesIO(raw)) as zf:
-        name = zf.namelist()[0]
-        with zf.open(name) as fh:
+        infos = zf.infolist()
+        if len(infos) != 1 or infos[0].file_size > MAX_ARCHIVE_MEMBER_BYTES:
+            raise RuntimeError("unexpected archive layout (expected one CSV of sane size)")
+        with zf.open(infos[0]) as fh:
             df = pd.read_csv(fh, header=None, usecols=range(6))
     # Some archives carry a header row; drop anything non-numeric.
     df = df[pd.to_numeric(df[0], errors="coerce").notna()].astype("float64")
@@ -46,23 +51,36 @@ def _parse_archive_csv(raw: bytes, interval_ms: int | None = None) -> pd.DataFra
     return make_frame(rows)
 
 
+def _sha256(blob: bytes) -> str:
+    return hashlib.sha256(blob).hexdigest()
+
+
 def _download_verified(http: HttpClient, url: str, dest: Path) -> bool:
-    """Download ``url`` to ``dest`` after SHA-256 verification. False on 404."""
-    if dest.exists():
-        return True
+    """Download ``url`` to ``dest`` after SHA-256 verification. False on 404.
+
+    Fails closed: an archive without a valid published checksum is rejected,
+    and cached archives are re-verified against their recorded digest.
+    """
+    digest_file = dest.with_name(dest.name + ".sha256")
+    if dest.exists() and digest_file.exists():
+        if _sha256(dest.read_bytes()) == digest_file.read_text().strip():
+            return True
+        log.warning("cached archive %s failed re-verification; downloading again", dest.name)
     blob = http.get_bytes(url)
     if blob is None:
         return False
     checksum = http.get_bytes(url + ".CHECKSUM")
-    if checksum is not None:
-        expected = checksum.decode().split()[0].strip().lower()
-        actual = hashlib.sha256(blob).hexdigest()
-        if expected != actual:
-            raise RuntimeError(f"checksum mismatch for {url}: {actual} != {expected}")
+    parts = checksum.decode(errors="replace").split() if checksum else []
+    if not parts or len(parts[0]) != 64:
+        raise RuntimeError(f"no valid published checksum for {url}; refusing unverified data")
+    expected, actual = parts[0].strip().lower(), _sha256(blob)
+    if expected != actual:
+        raise RuntimeError(f"checksum mismatch for {url}: {actual} != {expected}")
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_suffix(".part")
     tmp.write_bytes(blob)
     tmp.replace(dest)
+    digest_file.write_text(actual + "\n")
     return True
 
 

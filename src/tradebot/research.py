@@ -73,22 +73,38 @@ def evaluate_period(candles: pd.DataFrame, strategy: Strategy, cfg: Config | Non
 
 
 def check_causal(strategy: Strategy, candles: pd.DataFrame, n_checks: int = 25,
-                 min_index: int | None = None, seed: int = 7, atol: float = 1e-9) -> list[str]:
-    """Verify ``signals(df[:k]).iloc[-1] == signals(df).iloc[k-1]`` at random cut points.
+                 min_index: int | None = None, seed: int = 7, atol: float = 1e-9,
+                 window: int | None = -1, window_atol: float = 1e-6) -> list[str]:
+    """Verify the strategy is causal AND gives the same signals on the forward window.
 
-    Returns a list of violations (empty = causal). Any violation means the
-    strategy peeks at future bars and its backtest results are invalid.
+    1. Prefix check: ``signals(df[:k]).iloc[-1] == signals(df).iloc[k-1]`` - any
+       violation means the strategy peeks at future bars.
+    2. Window check: ``signals(df[k-L:k]).iloc[-1] == signals(df).iloc[k-1]``,
+       where L is the rolling window the forward run computes on
+       (``max(lookback_bars, warmup_bars + 2)``). Recursive indicators (EMA,
+       Wilder, EWM volatility) depend on where their input starts; a violation
+       means ``warmup_bars`` is too small and the live run would trade
+       differently from the backtest. Pass ``window=None`` to skip.
+
+    Returns a list of violations (empty = OK).
     """
     full = strategy.signals(candles)
     rng = np.random.default_rng(seed)
     lo = min_index if min_index is not None else min(len(candles) - 1, strategy.warmup_bars + 50)
     lo = max(2, lo)
     ks = sorted(set(rng.integers(lo, len(candles) + 1, size=n_checks).tolist()) | {len(candles)})
+    if window == -1:
+        window = max(load_config().data.lookback_bars, strategy.warmup_bars + 2)
     problems: list[str] = []
-    for k in ks:
-        part = strategy.signals(candles.iloc[:k])
+
+    def _cmp(part: pd.DataFrame, k: int, tol: float, label: str) -> None:
         for col in ("target", "stop_dist"):
             a, b = part[col].iloc[-1], full[col].iloc[k - 1]
-            if (math.isnan(a) != math.isnan(b)) or (not math.isnan(a) and abs(a - b) > atol * max(1.0, abs(b))):
-                problems.append(f"{col} differs at {candles.index[k - 1]}: prefix={a!r} full={b!r}")
+            if (math.isnan(a) != math.isnan(b)) or (not math.isnan(a) and abs(a - b) > tol * max(1.0, abs(b))):
+                problems.append(f"{label}: {col} differs at {candles.index[k - 1]}: {label}={a!r} full={b!r}")
+
+    for k in ks:
+        _cmp(strategy.signals(candles.iloc[:k]), k, atol, "prefix")
+        if window is not None and k > window:
+            _cmp(strategy.signals(candles.iloc[k - window:k]), k, window_atol, f"window[{window}]")
     return problems

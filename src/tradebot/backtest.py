@@ -96,7 +96,7 @@ def run_backtest(candles: pd.DataFrame, strategy: Strategy, cfg: Config,
     eq = equity_frame(eng.equity)
     trades = pd.DataFrame(eng.trades)
     trips = pd.DataFrame(eng.trips)
-    metrics = performance(eq, trades, trips, cash)
+    metrics = performance(eq, trades, trips, cash, periods_per_year=365 * 86_400_000 / params.interval_ms)
     metrics["strategy"] = strategy.describe()
     if i0 < strategy.warmup_bars:
         metrics["warning"] = f"only {i0} warm-up bars before start (strategy needs {strategy.warmup_bars})"
@@ -130,8 +130,10 @@ def run_campaigns(candles: pd.DataFrame, strategy: Strategy, cfg: Config,
             break
         start_ms = int(ms[s])
         end_ms = start_ms + span_ms
-        # bar whose close reaches end_ms, plus the following bar for the exit fill
-        e = int(np.searchsorted(ms, end_ms, "left"))  # first bar opening at/after end
+        # Same end condition as the forward run: the campaign ends at the close
+        # of the first bar whose close time reaches end_ms; the exit fill is at
+        # the following bar's open.
+        e = int(np.searchsorted(ms, end_ms - params.interval_ms, "left")) + 1
         if e >= i1 or int(ms[e]) > last_allowed_open:
             break
         state = EngineState.fresh(cash, start_ms=start_ms, end_ms=end_ms)
@@ -139,6 +141,10 @@ def run_campaigns(candles: pd.DataFrame, strategy: Strategy, cfg: Config,
         on_close = eng.on_close
         for i in range(s, e):
             on_close(int(ms[i]), o[i], h[i], l[i], c[i], tgt[i], sd[i])
+        if not state.ended:  # only possible with irregular data; force the end
+            state.ended = True
+            state.pending = None if eng.is_flat(c[e - 1]) else {"target": 0.0, "reason": "campaign end",
+                                                                 "stop_dist": None}
         eng.on_open(int(ms[e]), o[e])
         # Liquidation value (normally already flat after the end-of-campaign exit).
         final = state.cash + state.qty * o[e] * (1.0 - params.slippage) * (1.0 - params.fee_rate)

@@ -1,0 +1,6 @@
+# Inputs for requirements.txt (keep in sync with pyproject.toml dependencies).
+numpy>=1.26
+pandas>=2.1
+requests>=2.31
+setuptools>=68
+wheel

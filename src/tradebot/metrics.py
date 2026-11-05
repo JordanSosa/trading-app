@@ -45,7 +45,9 @@ def performance(eq: pd.DataFrame, trades: list[dict] | pd.DataFrame, trips: list
     final = float(e[-1])
     rets = np.diff(np.concatenate([[initial_equity], e])) / np.concatenate([[initial_equity], e[:-1]])
     n = len(rets)
-    years = n / periods_per_year
+    # Elapsed calendar time (robust to data gaps), one bar added for the first.
+    span_s = (eq.index[-1] - eq.index[0]).total_seconds() + 365 * 86400 / periods_per_year
+    years = span_s / (365 * 86400)
     mu, sd = float(rets.mean()), float(rets.std(ddof=1)) if n > 1 else 0.0
     downside = rets[rets < 0]
     dsd = float(np.sqrt((downside ** 2).sum() / n)) if n else 0.0

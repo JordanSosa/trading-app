@@ -152,11 +152,15 @@ class Engine:
             was_flat = self.is_flat(ref_price)
             s.qty += qty
             s.avg_cost = total_cost / s.qty
-            pnl = -fee
+            # Buy fees are capitalised into avg_cost and realised on the sell,
+            # so the buy row itself carries no realised P&L.
+            pnl = 0.0
             if was_flat or s.trip is None:
-                s.trip = {"entry_ms": ts_ms, "entry_price": price, "cost": 0.0, "pnl": 0.0,
+                s.trip = {"entry_ms": ts_ms, "entry_price": price, "cost": 0.0, "pnl": 0.0, "basis": 0.0,
                           "equity_before": s.cash + notional + fee + (s.qty - qty) * ref_price}
             s.trip["cost"] += notional + fee
+            # Peak capital committed during the trip (denominator for trip return).
+            s.trip["basis"] = max(s.trip.get("basis", 0.0), s.qty * s.avg_cost)
             realized = 0.0
         else:
             price = ref_price * (1.0 - p.slippage)
@@ -181,9 +185,10 @@ class Engine:
         })
         if side == "sell" and self.is_flat(ref_price) and s.trip is not None:
             t = s.trip
+            basis = t.get("basis") or t["cost"]
             self.trips.append({
                 "entry_ms": t["entry_ms"], "exit_ms": ts_ms, "entry_price": t["entry_price"],
-                "exit_price": price, "pnl": t["pnl"], "return": t["pnl"] / t["cost"] if t["cost"] else 0.0,
+                "exit_price": price, "pnl": t["pnl"], "return": t["pnl"] / basis if basis else 0.0,
                 "exit_reason": reason,
             })
             s.trip = None
@@ -234,7 +239,12 @@ class Engine:
         if s.last_close_ms is not None and ts_ms <= s.last_close_ms:
             return
         if s.last_open_ms is None or s.last_open_ms < ts_ms:
-            self.on_open(ts_ms, o)
+            self.on_open(ts_ms, o)  # executes a pending end-of-campaign flatten too
+        if s.ended:
+            # The campaign is over: nothing after the end bar may change results,
+            # however late the tick that delivers those bars arrives.
+            s.last_close_ms = ts_ms
+            return
         close_ms = ts_ms + p.interval_ms
 
         # 1) intrabar protective stop (resting stop order semantics)

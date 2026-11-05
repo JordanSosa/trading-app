@@ -81,22 +81,30 @@ def test_market_data_falls_back_and_rejects_stale():
 
 def test_http_client_retries_then_fails_fast_on_4xx():
     class Resp:
-        def __init__(self, code):
+        def __init__(self, code, body=b'{"ok": true}'):
             self.status_code = code
-            self.text = "x"
+            self.body = body
 
-        def json(self):
-            return {"ok": True}
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def iter_content(self, n):
+            for i in range(0, len(self.body), n):
+                yield self.body[i:i + n]
 
     class Sess:
-        def __init__(self, codes):
+        def __init__(self, codes, body=b'{"ok": true}'):
             self.codes = list(codes)
             self.headers = {}
             self.n = 0
+            self.body = body
 
-        def get(self, url, params=None, timeout=None):
+        def get(self, url, params=None, timeout=None, stream=False):
             self.n += 1
-            return Resp(self.codes.pop(0))
+            return Resp(self.codes.pop(0), self.body)
 
     s = Sess([500, 429, 200])
     c = HttpClient(retries=3, session=s, sleep=lambda _: None)
@@ -106,6 +114,12 @@ def test_http_client_retries_then_fails_fast_on_4xx():
     with pytest.raises(ProviderError):
         c.get_json("u")
     assert s.n == 1
+    # oversized bodies are refused
+    s = Sess([200], body=b"[" + b"1," * 600_000 + b"1]")
+    c = HttpClient(retries=1, session=s, sleep=lambda _: None)
+    c.max_json_bytes = 1_000_000
+    with pytest.raises(ProviderError, match="larger"):
+        c.get_json("u")
 
 
 @pytest.mark.network
@@ -114,3 +128,33 @@ def test_live_binance_vision():
     res = md.fetch("1h", 300, 200)
     assert len(res.candles) == 300
     assert time.time() * 1000 - (int(res.candles.index[-1].value // 1_000_000) + H) < 2 * H
+
+
+def test_clock_is_read_before_the_request():
+    # The response is built at 10:59:58 (bar 10:00 still forming), the request
+    # returns after 11:00. The 10:00 bar must NOT be treated as closed.
+    t_req = T0 + 59 * 60_000 + 58_000
+    clock = {"t": t_req}
+
+    def payload(url, params):
+        clock["t"] = T0 + H + 30_000  # time passes during the call
+        return _rows(params["limit"], T0)
+
+    md = MarketData(["binance_vision"], http=FakeHttp(payload), clock=lambda: clock["t"] / 1000)
+    res = md.fetch("1h", 200, 100)
+    assert int(res.candles.index[-1].value // 1_000_000) == T0 - H
+    assert res.forming_open_ms == T0
+
+
+def test_implausible_forming_bar_is_rejected():
+    now = T0 + 10 * 60_000
+
+    def payload(url, params):
+        rows = _rows(params["limit"], T0)
+        rows[-1][1] = "1.0"   # garbage open on the forming bar
+        rows[-1][3] = "1.0"
+        return rows
+
+    md = MarketData(["binance_vision"], http=FakeHttp(payload), clock=lambda: now / 1000)
+    res = md.fetch("1h", 200, 100)
+    assert res.forming_open is None and any("rejected" in w for w in res.warnings)

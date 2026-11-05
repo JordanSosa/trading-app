@@ -195,3 +195,35 @@ def test_state_round_trip_resumes_identically():
             b_eng = Engine(b_eng.params, EngineState.from_dict(b_eng.state.to_dict()))
         bar(b_eng, *b)
     assert b_eng.state.to_dict() == a.state.to_dict()
+
+
+def test_buy_rows_carry_no_realised_pnl():
+    e = engine()
+    bar(e, 0, 100, 100, 100, 100, 1.0)
+    bar(e, 1, 100, 100, 100, 100, 0.0)
+    bar(e, 2, 100, 100, 100, 100, 0.0)
+    buy, sell = e.trades
+    assert buy["realized_pnl"] == 0.0
+    assert sum(t["realized_pnl"] for t in e.trades) == pytest.approx(e.state.cash - 10_000)
+
+
+def test_engine_is_frozen_after_campaign_end_in_hold_mode():
+    st = EngineState.fresh(10_000.0, start_ms=0, end_ms=3 * H)
+    e = Engine(params(end_action="hold"), st)
+    bar(e, 0, 100, 100, 100, 100, 1.0, stop=5.0)
+    bar(e, 1, 100, 100, 100, 100, 1.0, stop=5.0)
+    bar(e, 2, 100, 100, 100, 100, 1.0, stop=5.0)
+    assert st.status == "completed" and st.qty > 0
+    bar(e, 3, 100, 100, 50, 60, 0.0, stop=5.0)  # would have hit the stop
+    assert len(e.trades) == 1 and st.qty > 0
+
+
+def test_trip_return_uses_peak_capital_not_sum_of_buys():
+    e = engine(min_rebalance=0.05)
+    bar(e, 0, 100, 100, 100, 100, 0.5)
+    bar(e, 1, 100, 100, 100, 100, 1.0)
+    bar(e, 2, 100, 100, 100, 100, 1.0)   # adds to 100%
+    bar(e, 3, 110, 110, 110, 110, 0.0)
+    bar(e, 4, 110, 110, 110, 110, 0.0)
+    trip = e.trips[0]
+    assert trip["return"] == pytest.approx(trip["pnl"] / (10_000 * 0.9999), rel=0.01)

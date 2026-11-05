@@ -18,9 +18,9 @@ DEFAULT_CONFIG = "config/paper.toml"
 
 
 def _cfg(args: argparse.Namespace):
-    path = args.config
-    if path == DEFAULT_CONFIG and not Path(path).exists():
-        path = None  # fall back to built-in defaults
+    # An explicitly passed --config must exist; without one, use
+    # config/paper.toml when present, else the built-in defaults.
+    path = args.config if args.config else (DEFAULT_CONFIG if Path(DEFAULT_CONFIG).exists() else None)
     cfg = load_config(path)
     if getattr(args, "state_dir", None):
         cfg = dataclasses.replace(cfg, run=dataclasses.replace(cfg.run, state_dir=args.state_dir))
@@ -120,8 +120,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     from .forward import run_daemon
     from .state import StateStore
     cfg = _cfg(args)
-    run_daemon(cfg, StateStore(cfg.run.state_dir), notifier=_notifier(cfg))
-    return 0
+    return run_daemon(cfg, StateStore(cfg.run.state_dir), notifier=_notifier(cfg))
 
 
 def cmd_status(args: argparse.Namespace) -> int:
@@ -160,21 +159,32 @@ def cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+RUN_ARTEFACTS = ("state.json", "trades.csv", "trips.csv", "equity.csv", "events.jsonl", "STATUS.md",
+                 "README.md", "equity.svg", "dashboard.html", "summary.json")
+
+
 def cmd_reset(args: argparse.Namespace) -> int:
+    from .state import StateError, StateStore
     cfg = _cfg(args)
     root = Path(cfg.run.state_dir)
-    if not root.exists() or not any(root.iterdir()):
+    present = [root / n for n in RUN_ARTEFACTS if (root / n).exists()]
+    if not present:
         print("nothing to reset")
         return 0
     if not args.yes:
         print("refusing to reset without --yes (the current run will be archived, not deleted)", file=sys.stderr)
         return 1
-    archive = root / "archive" / time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
-    archive.mkdir(parents=True)
-    for p in root.iterdir():
-        if p.name in ("archive",) or p.name.startswith(".tick.lock"):
-            continue
-        shutil.move(str(p), archive / p.name)
+    try:
+        with StateStore(root).lock():
+            archive = root / "archive" / time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+            archive.mkdir(parents=True)
+            # Only known run artefacts move; dotfiles (.git of a worktree,
+            # .gitignore, the lock) and anything else stay where they are.
+            for p in present:
+                shutil.move(str(p), archive / p.name)
+    except StateError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     print(f"previous run archived to {archive}; the next `tradebot tick` starts a new run")
     return 0
 
@@ -197,6 +207,9 @@ def cmd_replay(args: argparse.Namespace) -> int:
     df = _load_candles(args, cfg)
     end = df.index[-1] + pd.Timedelta(hours=1)
     start = pd.Timestamp(args.start, tz="UTC") if args.start else end - pd.Timedelta(days=cfg.run.duration_days + 1)
+    if not (df.index[0] < start < end):
+        print(f"--start must lie inside the data ({df.index[0]} .. {end})", file=sys.stderr)
+        return 1
     out = Path(args.out)
     if out.exists() and any(out.iterdir()):
         print(f"{out} is not empty; choose another --out", file=sys.stderr)
@@ -244,7 +257,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="command", required=True)
 
     def common(sp, strategy=False, data=False):
-        sp.add_argument("--config", default=DEFAULT_CONFIG, help="TOML config (default: %(default)s)")
+        sp.add_argument("--config", default=None,
+                        help=f"TOML config (default: {DEFAULT_CONFIG} if present, else built-in defaults)")
         if strategy:
             sp.add_argument("--strategy", help="override strategy name")
             sp.add_argument("--params", help="override strategy params as JSON")
@@ -315,6 +329,8 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    # urllib3 logs full request URLs at DEBUG, which would leak webhook tokens.
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
     try:
         return int(args.func(args) or 0)
     except ConfigError as exc:
