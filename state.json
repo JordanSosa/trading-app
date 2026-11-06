@@ -2,7 +2,7 @@
   "created_at": "2026-11-06T00:47:35Z",
   "engine": {
     "avg_cost": 0.0,
-    "bars_processed": 1,
+    "bars_processed": 2,
     "cash": 10000.0,
     "cooldown_until_ms": null,
     "end_ms": 1796515200000,
@@ -13,10 +13,10 @@
     "hwm": 10000.0,
     "in_market_bars": 0,
     "initial_equity": 10000.0,
-    "last_close_ms": 1793923200000,
+    "last_close_ms": 1793926800000,
     "last_equity": 10000.0,
-    "last_open_ms": 1793926800000,
-    "last_price": 76332.56,
+    "last_open_ms": 1793930400000,
+    "last_price": 76130.01,
     "last_target": 0.0,
     "max_drawdown": 0.0,
     "peak_equity": 10000.0,
@@ -34,12 +34,12 @@
   "health": {
     "consecutive_failures": 0,
     "last_error": null,
-    "last_live_price": 76160.0,
-    "last_live_price_at": "2026-11-06T01:50:35Z",
+    "last_live_price": 76245.79,
+    "last_live_price_at": "2026-11-06T02:54:08Z",
     "last_provider": "binance_vision",
-    "last_success_at": "2026-11-06T01:50:35Z",
-    "last_tick_at": "2026-11-06T01:50:35Z",
-    "ticks": 2
+    "last_success_at": "2026-11-06T02:54:08Z",
+    "last_tick_at": "2026-11-06T02:54:08Z",
+    "ticks": 3
   },
   "notify": {
     "last_daily_summary": "2026-11-06",
@@ -74,5 +74,5 @@
     "version": "0.1.0"
   },
   "schema_version": 1,
-  "updated_at": "2026-11-06T01:50:35Z"
+  "updated_at": "2026-11-06T02:54:08Z"
 }
