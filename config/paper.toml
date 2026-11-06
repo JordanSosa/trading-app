@@ -1,0 +1,60 @@
+# BTC/USDT paper-trading configuration for the 30-day forward run.
+# Every key is documented in src/tradebot/config.py. Changing strategy, costs or
+# risk settings mid-run is refused (see README: Configuration).
+
+[run]
+symbol = "BTCUSDT"
+timeframe = "1h"
+initial_cash = 10000.0
+duration_days = 30
+end_action = "flatten"      # sell to USDT when the 30 days are up
+state_dir = "state"
+mode = "paper"              # the only supported mode
+# Longs on spot (no funding), shorts on USDT-margined perpetual futures.
+# Long-only alternative: instrument = "spot", max_short = 0, strategy breakout_dual.
+instrument = "hybrid"
+
+[costs]
+fee_rate = 0.001            # Binance spot taker fee, no BNB discount (long side)
+perp_fee_rate = 0.0005      # Binance USD-M perpetual taker fee (short side)
+slippage_bps = 3.0
+min_notional = 10.0
+qty_step = 0.00001
+
+[risk]
+max_exposure = 1.0
+max_short = 1.0             # short sleeve is volatility-sized 0.25-1.0 of equity, no leverage
+min_rebalance = 0.10
+circuit_breaker_dd = 0.10   # 10% below the high-water mark -> flat for 48h
+circuit_breaker_hours = 48.0
+campaign_stop_loss = 0.15   # 15% below initial capital -> flat for the rest of the run
+stop_rearm = true
+stop_cooldown_bars = 0
+
+# Selected in research/LONG_SHORT_DECISION.md (pre-registered rule, 2018-2024 data).
+# Longs: breakout_dual unchanged (0/50/100% BTC on spot). Shorts: only while the
+# long side is flat AND BTC closes below its 125-day average but not more than 35%
+# below it; enter on a fresh 10-day low, cover on a 2-day high or at the 35% floor;
+# size = clip(0.004 / (ATR168 / close), 0.25, 1.0) fixed at entry.
+[strategy]
+name = "lss_breakdown_vol"
+
+[strategy.params]
+entry_n = 240
+exit_n = 48
+regime_n = 3000
+floor = 0.35
+short_risk = 0.004
+
+[data]
+providers = ["binance_vision", "okx", "kucoin", "gate", "coinbase"]
+lookback_bars = 3000        # the bot fetches max(this, warm-up + 720) bars per tick
+sanity_check = true
+max_price_deviation = 0.015
+request_timeout_s = 15.0
+retries = 3
+
+[notify]
+on_trade = true
+on_alert = true
+daily_summary = true
