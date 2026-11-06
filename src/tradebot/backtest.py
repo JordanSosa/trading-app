@@ -122,6 +122,7 @@ def run_backtest(candles: pd.DataFrame, strategy: Strategy, cfg: Config,
     trips = pd.DataFrame(eng.trips)
     metrics = performance(eq, trades, trips, cash, periods_per_year=365 * 86_400_000 / params.interval_ms)
     metrics["strategy"] = strategy.describe()
+    metrics["funding_paid"] = float(eng.state.funding_paid)
     if i0 < strategy.warmup_bars:
         metrics["warning"] = f"only {i0} warm-up bars before start (strategy needs {strategy.warmup_bars})"
     return BacktestResult(eq, trades, trips, eng.events, metrics, eng.state)

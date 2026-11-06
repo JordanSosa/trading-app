@@ -163,3 +163,16 @@ def test_funding_inside_a_data_gap_is_booked_at_the_next_bar():
     fund = pd.Series([0.001, 0.002, 0.004], index=[2 * H, 4 * H, 100 * H])
     f = funding_per_bar(open_ms, H, fund)
     assert f[1] == 0.001 and f[3] == 0.002 and f.sum() == pytest.approx(0.003)
+
+
+def test_reversal_installs_stop_for_the_new_position_on_its_first_bar():
+    e = eng()
+    bar(e, 0, 100, 100, 100, 100, 1.0, stop=5.0)
+    bar(e, 1, 100, 100, 100, 100, -1.0, stop=5.0)   # long opened at bar 1 open; decide to reverse
+    assert e.state.qty > 0
+    # bar 2: reversal fills at its open (long -> short), then the high spikes through the new stop
+    bar(e, 2, 100, 110, 99, 101, -1.0, stop=5.0)
+    expected_stop = 100 * (1 - 0.0003) + 5.0
+    stops = [t for t in e.trades if t["reason"] == "stop"]
+    assert stops and stops[0]["side"] == "buy" and stops[0]["ref_price"] == pytest.approx(expected_stop)
+    assert e.state.qty == 0.0 and e.state.rearm_required and e.state.rearm_side == -1

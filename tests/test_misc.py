@@ -84,3 +84,40 @@ def test_notifier_logs_http_errors_without_secrets(caplog):
     with caplog.at_level("WARNING"):
         n.send("x")
     assert "HTTP 404" in caplog.text and "SECRET" not in caplog.text
+
+
+def test_cli_perp_simulations_require_and_use_funding(tmp_path, capsys):
+    import json as _json
+
+    import numpy as np
+    import pandas as pd
+
+    from conftest import synthetic_candles
+    from tradebot.cli import main
+
+    df = synthetic_candles(3000)
+    data = tmp_path / "candles.csv"
+    df.to_csv(data, index_label="open_time")
+    cfg = tmp_path / "hybrid.toml"
+    cfg.write_text('[run]\ninstrument = "hybrid"\n[risk]\nmax_short = 1.0\n'
+                   '[strategy]\nname = "buy_hold"\n[strategy.params]\nexposure = 1.0\n')
+    missing = tmp_path / "nope.csv"
+    with pytest.raises(SystemExit):
+        main(["backtest", "--config", str(cfg), "--data", str(data), "--funding", str(missing)])
+    assert "funding history" in capsys.readouterr().err
+
+    # A short-only strategy run through the CLI must book the funding file.
+    cfg.write_text('[run]\ninstrument = "hybrid"\n[risk]\nmax_short = 1.0\n'
+                   '[strategy]\nname = "_test_scripted"\n')
+    import helpers_strategies
+    helpers_strategies.Scripted.targets = [-1.0]
+    t0 = int(df.index[0].value // 1_000_000)
+    times = np.arange(t0 + 8 * 3_600_000, t0 + len(df) * 3_600_000, 8 * 3_600_000)
+    fund = pd.Series(0.0005, index=times, name="rate")
+    fund.index.name = "time_ms"
+    fpath = tmp_path / "funding.csv"
+    fund.to_csv(fpath)
+    capsys.readouterr()
+    assert main(["backtest", "--config", str(cfg), "--data", str(data), "--funding", str(fpath)]) == 0
+    out = _json.loads(capsys.readouterr().out)
+    assert out["continuous"]["funding_paid"] < 0      # the short received positive funding

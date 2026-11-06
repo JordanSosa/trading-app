@@ -38,10 +38,13 @@ def _print_json(obj: Any) -> None:
 
 
 def cmd_download(args: argparse.Namespace) -> int:
-    from .data.history import download_history
+    from .data.history import download_funding, download_history
     df = download_history(args.data_dir, args.timeframe, start=args.start)
     print(f"{len(df)} closed {args.timeframe} bars {df.index[0]} .. {df.index[-1]} -> "
           f"{Path(args.data_dir) / f'BTCUSDT-{args.timeframe}.csv'}")
+    if not args.no_funding:
+        f = download_funding(args.data_dir)
+        print(f"{len(f)} perpetual funding settlements -> {Path(args.data_dir) / 'BTCUSDT-funding.csv'}")
     return 0
 
 
@@ -54,18 +57,37 @@ def _load_candles(args: argparse.Namespace, cfg):
     return load_history(path)
 
 
+def _load_funding(args: argparse.Namespace, cfg):
+    """Historical funding for perp/hybrid simulations (None for spot).
+
+    Simulating shorts without funding would silently differ from the forward
+    run, so a missing file is an error rather than a zero-funding fallback.
+    """
+    if cfg.run.instrument == "spot":
+        return None
+    from .data.history import load_funding
+    path = Path(getattr(args, "funding", None) or "data/BTCUSDT-funding.csv")
+    if not path.exists():
+        print(f"funding history {path} not found; instrument '{cfg.run.instrument}' needs it. "
+              "Run `tradebot download` (or pass --funding PATH).", file=sys.stderr)
+        raise SystemExit(1)
+    return load_funding(path)
+
+
 def cmd_backtest(args: argparse.Namespace) -> int:
     from .backtest import run_backtest, run_campaigns
     from .metrics import campaign_summary
     from .strategies import get_strategy
     cfg = _cfg(args)
     df = _load_candles(args, cfg)
+    funding = _load_funding(args, cfg)
     strat = get_strategy(cfg.strategy.name, cfg.strategy.params)
     sig = strat.signals(df)
-    res = run_backtest(df, strat, cfg, args.start, args.end, signals=sig)
+    res = run_backtest(df, strat, cfg, args.start, args.end, signals=sig, funding=funding)
     out: dict[str, Any] = {"continuous": res.metrics}
     if args.campaigns:
-        camp = run_campaigns(df, strat, cfg, args.start, args.end, days=cfg.run.duration_days, signals=sig)
+        camp = run_campaigns(df, strat, cfg, args.start, args.end, days=cfg.run.duration_days, signals=sig,
+                             funding=funding)
         out["campaigns"] = campaign_summary(camp)
     if args.output:
         Path(args.output).mkdir(parents=True, exist_ok=True)
@@ -81,8 +103,9 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
     from .strategies import get_strategy
     cfg = _cfg(args)
     df = _load_candles(args, cfg)
+    funding = _load_funding(args, cfg)
     strat = get_strategy(cfg.strategy.name, cfg.strategy.params)
-    _print_json(evaluate_period(df, strat, cfg, period=args.period))
+    _print_json(evaluate_period(df, strat, cfg, period=args.period, funding=funding))
     return 0
 
 
@@ -217,7 +240,7 @@ def cmd_replay(args: argparse.Namespace) -> int:
     if out.exists() and any(out.iterdir()):
         print(f"{out} is not empty; choose another --out", file=sys.stderr)
         return 1
-    res = replay(cfg, df, start, end, out, tick_minutes=args.tick_minutes)
+    res = replay(cfg, df, start, end, out, tick_minutes=args.tick_minutes, funding=_load_funding(args, cfg))
     store = StateStore(out)
     doc = store.load()
     s = write_reports(store, doc, cfg)
@@ -267,12 +290,14 @@ def build_parser() -> argparse.ArgumentParser:
             sp.add_argument("--params", help="override strategy params as JSON")
         if data:
             sp.add_argument("--data", help="history CSV (default: data/BTCUSDT-<tf>.csv)")
+            sp.add_argument("--funding", help="funding CSV for perp/hybrid (default: data/BTCUSDT-funding.csv)")
         return sp
 
     sp = sub.add_parser("download", help="download BTCUSDT history from data.binance.vision")
     sp.add_argument("--data-dir", default="data")
     sp.add_argument("--timeframe", default="1h")
     sp.add_argument("--start", default="2017-08-01")
+    sp.add_argument("--no-funding", action="store_true", help="skip the perpetual funding history")
     sp.set_defaults(func=cmd_download)
 
     sp = common(sub.add_parser("backtest", help="backtest a strategy on history"), strategy=True, data=True)

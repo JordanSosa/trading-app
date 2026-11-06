@@ -145,6 +145,12 @@ class Engine:
         q = self._floor_qty(abs(self.state.qty))
         return q <= 0 or q * price < self.params.min_notional
 
+    def _side(self, price: float) -> int:
+        """+1 long, -1 short, 0 flat (dust counts as flat)."""
+        if self.is_flat(price):
+            return 0
+        return 1 if self.state.qty > 0 else -1
+
     def equity_at(self, price: float) -> float:
         return self.state.cash + self.state.qty * price
 
@@ -309,11 +315,14 @@ class Engine:
         if order is None:
             return
         s.pending = None
-        was_flat = self.is_flat(open_price)
+        old_side = self._side(open_price)
         self._rebalance(ts_ms, open_price, float(order["target"]), order.get("reason", "signal"))
+        new_side = self._side(open_price)
         sd = order.get("stop_dist")
-        if was_flat and not self.is_flat(open_price) and sd is not None and math.isfinite(sd) and sd > 0:
-            if s.qty > 0:
+        # A new position (from flat, or reversed long <-> short in this fill)
+        # gets its protective stop immediately, so its first bar is covered.
+        if new_side != 0 and new_side != old_side and sd is not None and math.isfinite(sd) and sd > 0:
+            if new_side > 0:
                 fill = open_price * (1.0 + self.params.slippage)
                 s.stop_price = fill - sd
             else:
