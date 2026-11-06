@@ -9,7 +9,10 @@ name: Paper trade BTC/USDT
 
 on:
   schedule:
-    - cron: "7,22,37,52 * * * *"
+    # Changed from "7,22,37,52" so GitHub re-registers the schedule: after
+    # the first merge no scheduled run fired in over 2 hours, while manual
+    # runs succeeded. Off-minute slots avoid the busiest :00/:30 cron times.
+    - cron: "4,19,34,49 * * * *"
   workflow_dispatch:
     inputs:
       reset:
