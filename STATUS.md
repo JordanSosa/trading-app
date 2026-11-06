@@ -1,13 +1,13 @@
 # BTC/USDT paper trading - RUNNING
 
-> **Paper money only. No real orders are placed.** Updated 2026-11-06T00:47:35Z - data source `binance_vision` - run `run-20261106T0047Z`
+> **Paper money only. No real orders are placed.** Updated 2026-11-06T01:50:35Z - data source `binance_vision` - run `run-20261106T0047Z`
 
 | Metric | Value |
 |---|---|
 | Equity | **10,000.00 USDT** (+0.00%) |
 | P&L | 0.00 USDT (realised 0.00, unrealised 0.00) |
-| Buy & hold since start | +0.00% (strategy vs B&H: +0.00%) |
-| BTC price | 76,340.00 (start 76,340.00) |
+| Buy & hold since start | -0.24% (strategy vs B&H: +0.24%) |
+| BTC price | 76,160.00 (start 76,340.00) |
 | Position | flat 0.00000 BTC = 0.00 USDT (0.0% exposure, hybrid) |
 | Cash | 10,000.00 USDT |
 | Max drawdown | 0.00% (current 0.00%) |
@@ -28,9 +28,9 @@ _No fills yet._
 
 ## Health
 
-- Last tick: 2026-11-06T00:47:35Z (ticks run: 1)
-- Last successful tick: 2026-11-06T00:47:35Z
-- Last closed bar processed: 2026-11-06T00:00:00Z
+- Last tick: 2026-11-06T01:50:35Z (ticks run: 2)
+- Last successful tick: 2026-11-06T01:50:35Z
+- Last closed bar processed: 2026-11-06T01:00:00Z
 - Consecutive failures: 0
 
 Ledgers: [trades.csv](trades.csv) - [trips.csv](trips.csv) - [equity.csv](equity.csv) - [events.jsonl](events.jsonl) - [state.json](state.json)
