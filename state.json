@@ -1,45 +1,53 @@
 {
   "created_at": "2026-11-06T00:47:35Z",
   "engine": {
-    "avg_cost": 0.0,
-    "bars_processed": 66,
-    "cash": 10000.0,
+    "avg_cost": 74076.4725043655,
+    "bars_processed": 70,
+    "cash": 17769.140436257854,
     "cooldown_until_ms": null,
     "end_ms": 1796515200000,
     "ended": false,
-    "fees_paid": 0.0,
+    "fees_paid": 3.886513474866361,
     "funding_paid": 0.0,
     "halt_until_ms": null,
     "hwm": 10000.0,
     "in_market_bars": 0,
     "initial_equity": 10000.0,
-    "last_close_ms": 1794157200000,
+    "last_close_ms": 1794171600000,
     "last_equity": 10000.0,
-    "last_open_ms": 1794160800000,
-    "last_price": 75754.01,
-    "last_target": 0.0,
+    "last_open_ms": 1794175200000,
+    "last_price": 74135.77,
+    "last_target": -0.7775545506816345,
     "max_drawdown": 0.0,
     "peak_equity": 10000.0,
     "pending": null,
-    "qty": 0.0,
+    "qty": -0.10488000000000001,
     "realized_pnl": 0.0,
     "rearm_required": false,
     "rearm_side": 1,
     "start_ms": 1793923200000,
     "stop_price": null,
     "stopped": false,
-    "trade_count": 0,
-    "trip": null
+    "trade_count": 1,
+    "trip": {
+      "basis": 7769.140436257855,
+      "cost": 7776.913463207588,
+      "entry_ms": 1794175200000,
+      "entry_price": 74113.529269,
+      "equity_before": 10000.0,
+      "pnl": 0.0,
+      "side": "short"
+    }
   },
   "health": {
     "consecutive_failures": 0,
     "last_error": null,
-    "last_live_price": 75932.0,
-    "last_live_price_at": "2026-11-08T18:24:36Z",
+    "last_live_price": 74581.62,
+    "last_live_price_at": "2026-11-08T22:25:19Z",
     "last_provider": "binance_vision",
-    "last_success_at": "2026-11-08T18:24:36Z",
-    "last_tick_at": "2026-11-08T18:24:36Z",
-    "ticks": 15
+    "last_success_at": "2026-11-08T22:25:19Z",
+    "last_tick_at": "2026-11-08T22:25:19Z",
+    "ticks": 16
   },
   "notify": {
     "last_daily_summary": "2026-11-08",
@@ -74,5 +82,5 @@
     "version": "0.1.0"
   },
   "schema_version": 1,
-  "updated_at": "2026-11-08T18:24:36Z"
+  "updated_at": "2026-11-08T22:25:19Z"
 }

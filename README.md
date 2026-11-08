@@ -1,26 +1,28 @@
 # BTC/USDT paper trading - RUNNING
 
-> **Paper money only. No real orders are placed.** Updated 2026-11-08T18:24:36Z - data source `binance_vision` - run `run-20261106T0047Z`
+> **Paper money only. No real orders are placed.** Updated 2026-11-08T22:25:19Z - data source `binance_vision` - run `run-20261106T0047Z`
 
 | Metric | Value |
 |---|---|
-| Equity | **10,000.00 USDT** (+0.00%) |
-| P&L | 0.00 USDT (realised 0.00, unrealised 0.00) |
-| Buy & hold since start | -0.53% (strategy vs B&H: +0.53%) |
-| BTC price | 75,932.00 (start 76,340.00) |
-| Position | flat 0.00000 BTC = 0.00 USDT (0.0% exposure, hybrid) |
-| Cash | 10,000.00 USDT |
-| Max drawdown | 0.00% (current 0.00%) |
-| Fees paid | 0.00 USDT - funding paid 0.00 USDT (negative = received) |
-| Trades / round trips | 0 / 0 (win rate n/a) |
-| Run window | 2026-11-06T00:47:35Z -> 2026-12-06T00:00:00Z (day 2.7 of 30) |
+| Equity | **9,947.02 USDT** (-0.53%) |
+| P&L | -52.98 USDT (realised 0.00, unrealised -52.98) |
+| Buy & hold since start | -2.30% (strategy vs B&H: +1.77%) |
+| BTC price | 74,581.62 (start 76,340.00) |
+| Position | short 0.10488 BTC = 7,822.12 USDT (-78.6% exposure, hybrid) |
+| Cash | 17,769.14 USDT |
+| Max drawdown | 0.00% (current 0.53%) |
+| Fees paid | 3.89 USDT - funding paid 0.00 USDT (negative = received) |
+| Trades / round trips | 1 / 0 (win rate n/a) |
+| Run window | 2026-11-06T00:47:35Z -> 2026-12-06T00:00:00Z (day 2.9 of 30) |
 | Strategy | `lss_breakdown_vol(entry_n=240, exit_n=48, regime_n=3000, floor=0.35, short_risk=0.004)` |
 
 ![equity curve](equity.svg)
 
 ## Recent fills
 
-_No fills yet._
+| Time (UTC) | Side | Qty BTC | Fill price | Notional | Fee | Realised P&L | Reason |
+|---|---|---:|---:|---:|---:|---:|---|
+| 2026-11-08T22:00:00Z | sell | 0.10488 | 74,113.53 | 7,773.03 | 3.89 | 0.00 | signal |
 
 ## Events
 
@@ -28,9 +30,9 @@ _No fills yet._
 
 ## Health
 
-- Last tick: 2026-11-08T18:24:36Z (ticks run: 15)
-- Last successful tick: 2026-11-08T18:24:36Z
-- Last closed bar processed: 2026-11-08T18:00:00Z
+- Last tick: 2026-11-08T22:25:19Z (ticks run: 16)
+- Last successful tick: 2026-11-08T22:25:19Z
+- Last closed bar processed: 2026-11-08T22:00:00Z
 - Consecutive failures: 0
 
 Ledgers: [trades.csv](trades.csv) - [trips.csv](trips.csv) - [equity.csv](equity.csv) - [events.jsonl](events.jsonl) - [state.json](state.json)
