@@ -57,6 +57,19 @@ What the evidence says about the target:
   year and a 20% drawdown more likely than not. If the edge has gone, the
   expected result is the cost drag: fees and slippage on what it trades,
   about 11% of the account a year.
+* **What is realistic.** Out of sample the default setting made +20% a
+  year from 10,000 USDT and +14% from 1,000, with a 23% to 25% drawdown;
+  at a third to two-thirds of that risk, +8% to +16% from 10,000 USDT with
+  drawdowns of 8% to 15%. A losing year is between a one-in-four and a
+  two-in-five chance at every setting. Large professional trend-following
+  funds have compounded at about 5.7% a year since 2000, at lower risk.
+* **Trading it "like a professional" does not add anything.** The bot is
+  already a swing trader: it holds a position for 4.6 days on average and
+  wins 34% of its trades, with winners 2.35 times the size of losers.
+  Fourteen classic swing and day-trading systems with textbook stop and
+  target management, put in its place, all did worse in both periods, and
+  every day-trading one hit the kill switch once costs were charged
+  ([`RESULTS.md`](research/RESULTS.md), section 10).
 
 The full record is in [`research/`](research): the protocol written before
 any result existed, the candidates frozen before the validation year, the

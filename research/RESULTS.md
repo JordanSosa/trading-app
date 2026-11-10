@@ -587,7 +587,220 @@ no-edge runs reach.
   Adopting it now would be choosing the holdout's winner. It needs data
   that does not exist yet.
 
-## 10. Bottom line
+## 10. Would trading like a professional swing trader or day trader do better?
+
+The next question: aim for something realistic, and trade the way
+professional swing traders and day traders do. Four things were measured:
+what the bot already is, the professional playbook in its place, what
+professionals pay to trade and whether the bot could pay less, and what a
+realistic target looks like (`scripts/research_playbook.py`,
+`research_execution.py`, `research_targets.py`; `results/playbook.json`,
+`execution.json`, `targets.json`). All of it was run after the holdout had
+been seen; everything is reported and nothing is selected.
+
+### The bot is already a swing trader
+
+It holds a market on one side for 4.6 days on average (half of its trades
+are over within 39 hours). 34% of those trades make money, and the average
+winner is 2.35 times the average loser. It is in the market 99% of the
+time, at 0.71x of the account, and trades 0.37x of the account a day.
+Losing a little often and winning a lot seldom, sized by volatility across
+twenty markets, with a stop under every position, a daily loss limit and
+less risk in a drawdown: that is how systematic trend followers trade,
+which is the professional form of swing trading.
+
+### The professional playbook in the bot's place
+
+Classic setups, managed the way traders are taught to manage them: a stop
+at a multiple of the average daily range N, a profit target at a multiple
+of the risk, a trailing stop, a time stop, and for the day systems one
+trade per market per day and flat at the end of the session. Textbook
+settings, no tuning. Only entries and exits change: universe, sizing to the
+1.5% volatility target, costs, engine and governor are the bot's, from
+10,000 USDT. Positions are taken and closed at once. Compound return per
+day; † = the 40% kill switch fired.
+
+Swing systems, on daily bars with stops and targets watched every hour:
+
+| Entry and management | Trades won | Average win / average loss | Half of trades over within | In-sample | Out-of-sample | Out-of-sample total | Out-of-sample drawdown |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| **The bot** | 34% | 2.35 | 39 hours | +0.118% | +0.050% | +39.8% | 23.2% |
+| 20-day breakout, out on a 10-day reversal, stop 2N | 37% | 2.24 | 13 days | +0.057% | +0.026% | +18.9% | 24.9% |
+| the same entry, stop 2N, out after ten days | 44% | 1.39 | 10 days | +0.045% | +0.031% | +23.4% | 22.1% |
+| the same entry, stop 2N, profit taken at 3x the risk | 42% | 1.53 | 12 days | +0.042% | +0.011% | +7.9% | 23.0% |
+| the same entry, trailing stop 3N behind the best price | 45% | 1.22 | 10 days | +0.011%† | +0.028% | +20.5% | 20.6% |
+| the same entry, stop 2N, profit taken at 2x the risk | 43% | 1.37 | 9 days | +0.010%† | -0.036% | -21.4% | 39.9% |
+| 55-day breakout, out on a 20-day reversal, stop 2N | 35% | 2.93 | 18 days | +0.001% | +0.026% | +19.3% | 18.9% |
+| 20-day breakout, only with Bitcoin's 200-day trend | 38% | 2.33 | 14 days | +0.019% | +0.026% | +18.9% | 28.9% |
+| Buy the dip in an uptrend (two-day RSI under 10), sell the bounce | 62% | 0.72 | 4 days | -0.024%† | -0.040% | -23.5% | 25.7% |
+| Pullback to the 20-day EMA in a trend, stop 1.5N, profit at 2x the risk | 36% | 1.69 | 8 days | -0.021%† | -0.037% | -21.9% | 33.3% |
+
+Day systems, on hourly bars (the finest data here):
+
+| System | Trades won | Average win / average loss | Traded per day | Before costs, in-sample | Before costs, out-of-sample | After costs, in-sample | After costs, out-of-sample | Out-of-sample total |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Opening-range breakout, first four hours of the UTC day | 45% | 1.31 | 2.9x | +0.040% | +0.091% | -0.026%† | -0.070%† | -37.3% |
+| Opening-range breakout, US open (13:00-15:00 UTC) | 45% | 1.23 | 1.8x | -0.002% | +0.045% | -0.029%† | -0.069%† | -37.1% |
+| Breakout of the previous day's high or low | 44% | 1.24 | 2.1x | -0.005%† | +0.060% | -0.026%† | -0.064%† | -34.9% |
+| Afternoon follows morning (12:00 UTC) | 48% | 1.13 | 2.1x | +0.010% | +0.076% | -0.026%† | -0.067%† | -36.3% |
+| Fade a close outside the hourly Bollinger band | 58% | 0.74 | 1.9x | -0.019% | -0.063% | -0.028%† | -0.075%† | -39.4% |
+
+* **None of the fourteen beat the bot, in either period.**
+* **Every day-trading system hit the kill switch, in both periods.** Four
+  of the five made money before costs out of sample, +0.045% to +0.091% a
+  day, the best of them more than the bot makes before costs (+0.083%).
+  They turn the account over 1.8 to 2.9 times a day, which at 8 bps a side
+  costs 0.14% to 0.23% a day. Their edge is worth 2.5 to 3.7 bps for each
+  unit traded out of sample and under 2 bps in-sample; the bot pays 8.
+* **How a trade is managed does not create an edge, and it can remove
+  one.** The same 20-day breakout was given five exits. Taking profit at
+  twice the risk, the rule most often taught, was the worst of them: it
+  won more often (43% of trades against 37% for the reversal exit) and
+  made less per win (1.37 times the average loss against 2.24), hit the
+  kill switch in-sample and lost 21% out of sample. It is the +2% profit
+  lock of section 3 again: capping the winners removes what pays for the
+  losers.
+* **A high win rate is not an edge.** Two systems won more than half their
+  trades: buying dips in an uptrend (62%) and fading the hourly bands
+  (58%). Both lost in both periods; their average loss was about 1.4 times
+  their average win.
+* **Trading only with Bitcoin's trend did not help**: a third as much
+  in-sample (+0.019% a day against +0.057%) and the same out of sample.
+* **Six of the nine swing systems made money out of sample**, +8% to +23%
+  against the bot's +39.8%, and four of the nine hit the kill switch
+  in-sample. What separates the bot from them is what separated it from
+  the single indicators in section 8: five horizons instead of one,
+  positions in proportion to the signal instead of all-in and all-out, and
+  a cross-sectional sleeve.
+
+### What professionals pay to trade, and whether the bot could pay less
+
+The day systems lose to costs, and cost is where people who trade for a
+living differ from everyone else. The base rate on OKX and on Binance
+perpetuals is 0.05% to take liquidity and 0.02% to provide it [3]. The bot
+takes: 5 bps of fee and a modelled 3 bps of slippage on every trade.
+
+What a basis point is worth to the frozen strategy: the engine from 10,000
+USDT with the fee and slippage scaled.
+
+| All-in cost per side | In-sample per day | Out-of-sample per day | Out-of-sample total | Out-of-sample per year | Out-of-sample per year, from 1,000 USDT |
+|---|---:|---:|---:|---:|---:|
+| 0 (no costs) | +0.144% | +0.082% | +73.4% | +35.0% | +28.9% |
+| 2 bps (the maker fee alone) | +0.137% | +0.074% | +64.3% | +31.1% | +23.2% |
+| 4 bps | +0.130% | +0.067% | +56.5% | +27.7% | +19.2% |
+| 6 bps | +0.124% | +0.057% | +46.2% | +23.0% | +15.8% |
+| **8 bps (the model: 5 fee + 3 slippage)** | +0.118% | **+0.050%** | **+39.8%** | +20.1% | +13.6% |
+| 16 bps (doubled) | +0.091% | +0.012% | +8.7% | +4.6% | -2.2% |
+
+How much of that a patient limit order might capture, on the fast backtest
+(no stops, minimum sizes or governor, so its totals run higher than the
+engine's). An order rests at the hour's opening price, fills if the hour
+trades through that price by a margin, and otherwise crosses the spread at
+the next hour:
+
+| Execution | Traded as maker (in / out of sample) | Limit orders left unfilled | Move away after an unfilled order | All-in cost per side, in-sample (bps) | Out-of-sample (bps) | Out-of-sample total |
+|---|---:|---:|---:|---:|---:|---:|
+| Cross the spread at once (the model) | | | | 8.0 | 8.0 | +58.6% |
+| Limit orders that always fill (the ceiling) | 100% / 100% | 0.0% / 0.0% |  | 2.0 | 2.0 | +83.3% |
+| Limit orders, filled if the hour trades 2 bps through; cross after one unfilled hour | 94% / 93% | 3.6% / 3.9% | +111 / +91 bps | 5.6 | 7.6 | +60.7% |
+| the same, cross after four unfilled hours | 100% / 100% | 3.7% / 4.1% | +109 / +88 bps | 5.8 | 7.4 | +61.3% |
+| Limit orders, filled if the hour trades 5 bps through; cross after one unfilled hour | 90% / 88% | 6.6% / 7.2% | +103 / +87 bps | 8.6 | 10.9 | +48.2% |
+
+"All-in cost per side" is the flat cost at which crossing the spread would
+have given the same net result: fees plus what the unfilled orders cost.
+
+* **Each basis point a side is worth about 1.9 points of return a year out
+  of sample**, at either account size. The model's 8 bps take 15 points a
+  year from a strategy that makes 35 before costs.
+* **The ceiling is large.** If every order filled at the maker fee, the
+  out-of-sample result from 10,000 USDT would be +64% instead of +40%,
+  +31% a year instead of +20%.
+* **Resting an order for an hour captures little of it.** With a 2 bps
+  margin 96% of orders fill, and the 4% that do not are followed by a move
+  of about 1% away from the order before the next attempt. All-in, the
+  cost per side falls from 8.0 bps to 5.6 in-sample and to 7.6 out of
+  sample. With a 5 bps margin it is worse than crossing the spread. More
+  patience changes nothing.
+* **The reason is the strategy.** It buys what is rising. The orders that
+  go unfilled are the ones the price ran away from, and those are the
+  trades it most wanted.
+* **What hourly bars cannot show** is an order that follows the price for
+  seconds or minutes before it crosses, which is how execution is done
+  professionally. That needs minute data or measurement on a live paper
+  run. It has not been tested, and the fill rule used here is a kind one
+  (the script's docstring lists why).
+
+### What a realistic target looks like
+
+Professionals set the risk and take the return that comes with it. The
+same strategy at lower volatility targets, with a year ahead resampled from
+each setting's out-of-sample days (10-day blocks):
+
+| Daily volatility target | Account (USDT) | In-sample per year | Out-of-sample per year | Out-of-sample drawdown | Worst day | A year ahead: median | 5th to 95th percentile | Losing year | Drawdown of 20% or more |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 0.5% | 10,000 | +15.7% | +8.4% | 8.1% | -2.1% | +8% | -10% to +33% | 25% | 1% |
+| 0.5% | 1,000 | +19.8% | +3.2% | 10.6% | -2.5% | +3% | -17% to +32% | 41% | 11% |
+| 0.75% | 10,000 | +24.5% | +11.3% | 11.8% | -3.2% | +11% | -16% to +51% | 27% | 14% |
+| 0.75% | 1,000 | +28.9% | +8.5% | 13.9% | -3.3% | +9% | -21% to +54% | 34% | 26% |
+| 1% | 10,000 | +32.8% | +15.9% | 15.1% | -3.4% | +16% | -20% to +75% | 27% | 32% |
+| 1% | 1,000 | +35.0% | +11.1% | 16.2% | -3.2% | +11% | -25% to +71% | 33% | 43% |
+| 1.5% (default) | 10,000 | +53.8% | +20.1% | 23.2% | -5.3% | +20% | -31% to +123% | 30% | 72% |
+| 1.5% (default) | 1,000 | +54.8% | +13.6% | 25.4% | -5.3% | +14% | -35% to +111% | 36% | 78% |
+
+* **Return and drawdown move together.** From 10,000 USDT the Sharpe ratio
+  is 0.75 to 0.83 at every setting: the dial chooses how much drawdown to
+  live with, not how good the strategy is.
+* **On this evidence a realistic target is 8% to 20% a year** from 10,000
+  USDT, depending on the setting, with a losing year about one time in
+  four; from 1,000 USDT, 3% to 14% with a losing year one time in three,
+  and two in five at the lowest setting. The evidence is one 22-month
+  period, about one standard error above zero (section 6).
+* **Small accounts give some of it back.** At 1,000 USDT the small-account
+  effects of section 5 cost 3 to 7 points a year, and at the lowest setting
+  most of the edge: +3.2% against +8.4%.
+* **That is the order of what professionals earn.** The SG Trend Index of
+  large trend-following funds has compounded at about 5.7% a year since
+  2000, with volatility near 13% and a worst drawdown of 21% to 23% [2].
+  The bot's 0.5% and 0.75% settings run at 10% to 16% volatility and made
+  8% to 11% a year from 10,000 USDT out of sample: 22 months against 26
+  years.
+* **Day trading for a living is rarer than it looks.** "Less than 1% of
+  the day trader population is able to predictably and reliably earn
+  positive abnormal returns net of fees" (Taiwan) [1]. Of the Brazilian
+  day traders who persisted for more than 300 days, 97% lost money and
+  1.1% earned more than the minimum wage [1].
+* **A daily target is the wrong yardstick at these levels.** +20% a year
+  is +0.05% a day, against daily swings of 1.6%.
+
+### What follows
+
+* **Nothing was changed in the strategy or the app.** The bot already
+  trades the way professional swing traders do, and it beat all fourteen
+  playbook systems in both periods.
+* **Day trading is closed at these costs.** Its edge here is 2.5 to 3.7
+  bps a unit traded out of sample; an account that crosses the spread
+  pays 8.
+* **A lower risk setting is a choice of drawdown, not a better strategy.**
+  The default stays. The self-audit's reference (section 9) exists for the
+  default only.
+* **Execution is the one place where a large improvement is arithmetically
+  available, and the simple version does not capture it.** A proper test
+  needs minute data or measurement on a live run. It is not built.
+
+Sources, read 2026-11-10. [1] Barber, Lee, Liu and Odean, "The
+cross-section of speculator skill: Evidence from day trading", Journal of
+Financial Markets 18 (2014), abstract
+(econpapers.repec.org/RePEc:eee:finmar:v:18:y:2014:i:c:p:1-24); Chague,
+De-Losso and Giovannetti, "Day Trading for a Living?", SSRN 3423101,
+abstract. [2] Secondary sources, the index provider's page not being
+readable: Top Traders Unplugged, "Trend Following Performance Report",
+September 2026 (5.75% a year from January 2000, maximum drawdown 20.61%);
+Sepp and Lucic, arXiv:2607.19497 (5.6% a year, volatility 12.7%, drawdown
+23% on daily data, to July 2026). [3] OKX fee notice of 30 July 2026
+(regular tier, futures: maker 0.0200%, taker 0.0500%); Binance futures fee
+tiers (regular user: maker 0.0200%, taker 0.0500%).
+
+## 11. Bottom line
 
 A daily target of 2% compounding is 1,377x a year. On the evidence here a
 robust, risk-governed strategy on liquid crypto perpetuals compounds at
@@ -600,7 +813,14 @@ Trading faster did not help: at day-trading speed ten of eleven textbook
 rules lost 95% or more to costs. Nor did letting the bot re-tune itself on
 its own results: of the 36 versions that judged on six months or less, none
 beat leaving the strategy alone over the 5.6 years tested and three did
-over the last 22 months, and the faster it adapted the worse it did.
+over the last 22 months, and the faster it adapted the worse it did. Nor
+did trading it like a professional: the bot already is the professional
+form of swing trading and beat all fourteen playbook systems put in its
+place, and every day-trading system hit the kill switch once costs were
+charged.
+
+What is realistic, on this evidence, is 8% to 20% a year from 10,000 USDT
+depending on the risk setting, with a losing year about one time in four.
 
 The app therefore measures every day against the 2% target and reports it,
 sizes for a 1.5% daily swing, never trades to hit the number, and audits

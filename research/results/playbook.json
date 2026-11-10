@@ -1,0 +1,1521 @@
+{
+  "equity": 10000.0,
+  "note": "Run after the holdout was seen. Textbook parameters, no tuning, no selection: every system is reported.",
+  "systems": {
+    "bot (frozen default)": {
+      "dev": {
+        "avg_gross": 0.6107975281006628,
+        "by_year": {
+          "2020": 0.8556050352899887,
+          "2021": 0.572137787370006,
+          "2022": 0.1465988917089438,
+          "2023": 0.8879425298011028,
+          "2024": 0.22872462424127793
+        },
+        "cagr": 0.5384735808801566,
+        "compound_daily": 0.0011809453801822159,
+        "daily_vol": 0.014053659142002788,
+        "engine_max_drawdown": 0.21535261378434833,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 1.7385412382732048,
+        "stops": 214,
+        "time_in_market": 0.9915754608294931,
+        "total_return": 6.759451057186838,
+        "trades": 112555,
+        "turnover_per_day": 0.32424503645645675,
+        "worst_day": -0.05291721501785285
+      },
+      "dev_before_costs": {
+        "avg_gross": 0.6129658327057701,
+        "by_year": {
+          "2020": 0.9996501897793524,
+          "2021": 0.6746119979735272,
+          "2022": 0.2768931807451265,
+          "2023": 1.1144475561444853,
+          "2024": 0.34433594621160024
+        },
+        "cagr": 0.6907045094295545,
+        "compound_daily": 0.001439789781718795,
+        "daily_vol": 0.014073406046225175,
+        "engine_max_drawdown": 0.19103501276421342,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 2.0878173286929913,
+        "stops": 212,
+        "time_in_market": 0.9917434715821812,
+        "total_return": 11.154232062113966,
+        "trades": 113020,
+        "turnover_per_day": 0.32637056299942396,
+        "worst_day": -0.05254426010116742
+      },
+      "family": "reference",
+      "holdout": {
+        "avg_gross": 0.705966503121688,
+        "by_year": {
+          "2025": -0.05949145482266005,
+          "2026": 0.4867681002841706
+        },
+        "cagr": 0.20071857684650496,
+        "compound_daily": 0.000501276807152238,
+        "daily_vol": 0.01584946524887245,
+        "engine_max_drawdown": 0.23160194802670708,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 0.7528386773217103,
+        "stops": 126,
+        "time_in_market": 0.9933981066268062,
+        "total_return": 0.39831810301434145,
+        "trades": 40409,
+        "turnover_per_day": 0.3743658712953421,
+        "worst_day": -0.05284861517505424
+      },
+      "holdout_before_costs": {
+        "avg_gross": 0.712052318999893,
+        "by_year": {
+          "2025": 0.05492800112587348,
+          "2026": 0.6464881193300955
+        },
+        "cagr": 0.35151991523749326,
+        "compound_daily": 0.0008256278275018094,
+        "daily_vol": 0.015981721970507404,
+        "engine_max_drawdown": 0.20439703722464875,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 1.136738902863694,
+        "stops": 126,
+        "time_in_market": 0.9933981066268062,
+        "total_return": 0.7369264206023993,
+        "trades": 40815,
+        "turnover_per_day": 0.3790078425596083,
+        "worst_day": -0.05211400500499086
+      },
+      "trades": {
+        "average_loss": -0.0510097619232892,
+        "average_trade": 0.007299368950297156,
+        "average_win": 0.11999519622943329,
+        "mean_hold_hours": 111.45171549730146,
+        "median_hold_hours": 39.0,
+        "payoff_ratio": 2.3523967120232303,
+        "trades": 10376,
+        "trades_per_day": 4.314345114345114,
+        "win_rate": 0.3409791827293755
+      },
+      "what": "trend and cross-sectional momentum, eased in over 12 hours"
+    },
+    "breakout_10d": {
+      "dev": {
+        "avg_gross": 0.33301965823845,
+        "by_year": {
+          "2020": 0.09201386354547836,
+          "2021": 0.4395012419976696,
+          "2022": 0.04952000929500189,
+          "2023": 0.14636322307250538,
+          "2024": 0.1448495958371745
+        },
+        "cagr": 0.17636033051981181,
+        "compound_daily": 0.00044509959195402596,
+        "daily_vol": 0.013388172833381538,
+        "engine_max_drawdown": 0.3010135935983774,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 0.7626091997824166,
+        "stops": 156,
+        "time_in_market": 0.9331797235023042,
+        "total_return": 1.1652178501038297,
+        "trades": 6792,
+        "turnover_per_day": 0.14850421702318092,
+        "worst_day": -0.05791755998847492
+      },
+      "dev_before_costs": {
+        "avg_gross": 0.3398717349921599,
+        "by_year": {
+          "2020": 0.1401545209512971,
+          "2021": 0.48815582804697666,
+          "2022": 0.08570500209305743,
+          "2023": 0.23972602129999454,
+          "2024": 0.19302640800967463
+        },
+        "cagr": 0.23459147548958104,
+        "compound_daily": 0.0005775369192481172,
+        "daily_vol": 0.013529636665458308,
+        "engine_max_drawdown": 0.284243562537699,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 0.9442471320695328,
+        "stops": 153,
+        "time_in_market": 0.9332757296466974,
+        "total_return": 1.7245810762200136,
+        "trades": 6803,
+        "turnover_per_day": 0.1516553967142666,
+        "worst_day": -0.057601566818329286
+      },
+      "family": "swing",
+      "holdout": {
+        "avg_gross": 0.43456567625878,
+        "by_year": {
+          "2025": -0.020619845922318025,
+          "2026": 0.2604509381775586
+        },
+        "cagr": 0.12178366027635668,
+        "compound_daily": 0.00031489880955578204,
+        "daily_vol": 0.014101148171688475,
+        "engine_max_drawdown": 0.22094493443595298,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 0.5596981833908722,
+        "stops": 79,
+        "time_in_market": 0.9657448928749377,
+        "total_return": 0.23446063403969641,
+        "trades": 2681,
+        "turnover_per_day": 0.17308644896922332,
+        "worst_day": -0.04440953254440527
+      },
+      "holdout_before_costs": {
+        "avg_gross": 0.4361286305114387,
+        "by_year": {
+          "2025": 0.027733106723241585,
+          "2026": 0.3193750246979927
+        },
+        "cagr": 0.18073809131334473,
+        "compound_daily": 0.0004552809898923653,
+        "daily_vol": 0.014122144941691518,
+        "engine_max_drawdown": 0.21452226761628357,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 0.7491245826673636,
+        "stops": 79,
+        "time_in_market": 0.9658071748878924,
+        "total_return": 0.35596539306592323,
+        "trades": 2679,
+        "turnover_per_day": 0.17396860590981023,
+        "worst_day": -0.04406625288698873
+      },
+      "trades": {
+        "average_loss": -0.11387724079931659,
+        "average_trade": 0.007052685412985291,
+        "average_win": 0.15812130057788776,
+        "mean_hold_hours": 188.4896551724138,
+        "median_hold_hours": 240.0,
+        "payoff_ratio": 1.3885241639858619,
+        "trades": 2175,
+        "trades_per_day": 0.9043659043659044,
+        "win_rate": 0.44459770114942526
+      },
+      "what": "20-day breakout, stop 2N, out after ten days"
+    },
+    "breakout_2r": {
+      "dev": {
+        "avg_gross": 0.3341124832682409,
+        "by_year": {
+          "2020": 0.04954859226534092,
+          "2021": 0.465971690853789,
+          "2022": 0.05284014210687005,
+          "2023": -0.263686432611681,
+          "2024": 0.0
+        },
+        "cagr": 0.03775685565751985,
+        "compound_daily": 0.00010154355026577538,
+        "daily_vol": 0.011810718116585937,
+        "engine_max_drawdown": 0.40081604149460937,
+        "killed": true,
+        "liquidated": false,
+        "sharpe": 0.2770600852849311,
+        "stops": 242,
+        "time_in_market": 0.7362711213517665,
+        "total_return": 0.19276084026789664,
+        "trades": 5125,
+        "turnover_per_day": 0.10606859976578305,
+        "worst_day": -0.09414308433759977
+      },
+      "dev_before_costs": {
+        "avg_gross": 0.4558797824069261,
+        "by_year": {
+          "2020": 0.0857778274084029,
+          "2021": 0.5218357787346903,
+          "2022": 0.09906793723917473,
+          "2023": -0.10767369885173583,
+          "2024": -0.0697394222908908
+        },
+        "cagr": 0.0901345880701927,
+        "compound_daily": 0.00023646949947062177,
+        "daily_vol": 0.012849185580073719,
+        "engine_max_drawdown": 0.37916260081373954,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 0.4743183021446943,
+        "stops": 309,
+        "time_in_market": 0.9856710829493087,
+        "total_return": 0.5075148827777904,
+        "trades": 7168,
+        "turnover_per_day": 0.13528567912043746,
+        "worst_day": -0.09332703422421407
+      },
+      "family": "swing",
+      "holdout": {
+        "avg_gross": 0.5517791627446431,
+        "by_year": {
+          "2025": -0.029295579128096105,
+          "2026": -0.19035964205064482
+        },
+        "cagr": -0.12316097954356275,
+        "compound_daily": -0.0003600224654512309,
+        "daily_vol": 0.011233830765524573,
+        "engine_max_drawdown": 0.3993052308882583,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": -0.5052948205234534,
+        "stops": 129,
+        "time_in_market": 0.9931489785749875,
+        "total_return": -0.21407852522225168,
+        "trades": 2822,
+        "turnover_per_day": 0.15783735078632852,
+        "worst_day": -0.03423993031067896
+      },
+      "holdout_before_costs": {
+        "avg_gross": 0.5875745913976207,
+        "by_year": {
+          "2025": 0.04768217381741846,
+          "2026": -0.18301514387456097
+        },
+        "cagr": -0.08136740060274583,
+        "compound_daily": -0.0002324908317046786,
+        "daily_vol": 0.01182818609008647,
+        "engine_max_drawdown": 0.36985015684680156,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": -0.26291052239929547,
+        "stops": 129,
+        "time_in_market": 0.9922770303936224,
+        "total_return": -0.14405952995858895,
+        "trades": 2832,
+        "turnover_per_day": 0.16612995885778364,
+        "worst_day": -0.03539490921342314
+      },
+      "trades": {
+        "average_loss": -0.17916903957138977,
+        "average_trade": 0.0022943757007888093,
+        "average_win": 0.2455695425499475,
+        "mean_hold_hours": 449.6686148451198,
+        "median_hold_hours": 212.0,
+        "payoff_ratio": 1.3706025501805545,
+        "trades": 1711,
+        "trades_per_day": 0.7114345114345114,
+        "win_rate": 0.4272355347749854
+      },
+      "what": "20-day breakout, stop 2N, target 2R"
+    },
+    "breakout_3r": {
+      "dev": {
+        "avg_gross": 0.5234732421706902,
+        "by_year": {
+          "2020": 0.2960494968322145,
+          "2021": 0.5218547707948686,
+          "2022": 0.03716665677699238,
+          "2023": 0.2611778499051429,
+          "2024": -0.19919849822587665
+        },
+        "cagr": 0.16482379147062498,
+        "compound_daily": 0.0004180868907426064,
+        "daily_vol": 0.014119434140733418,
+        "engine_max_drawdown": 0.3119807667322385,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 0.7007228159966533,
+        "stops": 303,
+        "time_in_market": 0.98607910906298,
+        "total_return": 1.0660677461119823,
+        "trades": 6458,
+        "turnover_per_day": 0.13736817433336665,
+        "worst_day": -0.1035928720287933
+      },
+      "dev_before_costs": {
+        "avg_gross": 0.5367284516991391,
+        "by_year": {
+          "2020": 0.37097884827554584,
+          "2021": 0.5702801945482794,
+          "2022": 0.0856862254073325,
+          "2023": 0.3165119191586394,
+          "2024": -0.12109550559330884
+        },
+        "cagr": 0.23266777730444854,
+        "compound_daily": 0.0005732621843263378,
+        "daily_vol": 0.014422694046328994,
+        "engine_max_drawdown": 0.283899285900457,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 0.8971467611694839,
+        "stops": 305,
+        "time_in_market": 0.9856230798771122,
+        "total_return": 1.7044485019316422,
+        "trades": 6521,
+        "turnover_per_day": 0.14504209897687115,
+        "worst_day": -0.1022496752556038
+      },
+      "family": "swing",
+      "holdout": {
+        "avg_gross": 0.6810862835938085,
+        "by_year": {
+          "2025": 0.00832376963969006,
+          "2026": 0.0696830513900264
+        },
+        "cagr": 0.04213849663592972,
+        "compound_daily": 0.00011308817134628376,
+        "daily_vol": 0.014744883264542841,
+        "engine_max_drawdown": 0.23047493769523464,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 0.28684170393221303,
+        "stops": 113,
+        "time_in_market": 0.9829970104633782,
+        "total_return": 0.07858684669727878,
+        "trades": 2478,
+        "turnover_per_day": 0.22430613459063212,
+        "worst_day": -0.04541500405637966
+      },
+      "holdout_before_costs": {
+        "avg_gross": 0.6875255675073573,
+        "by_year": {
+          "2025": 0.07674183488287656,
+          "2026": 0.14120452680179896
+        },
+        "cagr": 0.11896562165884594,
+        "compound_daily": 0.0003080055239080964,
+        "daily_vol": 0.014780501089867107,
+        "engine_max_drawdown": 0.21617204550184377,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 0.538629359595694,
+        "stops": 113,
+        "time_in_market": 0.9828724464374688,
+        "total_return": 0.22878265616521354,
+        "trades": 2477,
+        "turnover_per_day": 0.22774083960797634,
+        "worst_day": -0.04675395169181684
+      },
+      "trades": {
+        "average_loss": -0.19622335123645443,
+        "average_trade": 0.011476147722404524,
+        "average_win": 0.29950541805559566,
+        "mean_hold_hours": 627.2722627737227,
+        "median_hold_hours": 290.5,
+        "payoff_ratio": 1.5263495204232016,
+        "trades": 1370,
+        "trades_per_day": 0.5696465696465697,
+        "win_rate": 0.41897810218978104
+      },
+      "what": "20-day breakout, stop 2N, target 3R"
+    },
+    "breakout_55_20": {
+      "dev": {
+        "avg_gross": 0.31678039647050726,
+        "by_year": {
+          "2020": 0.06358964250589394,
+          "2021": 0.19993482703133192,
+          "2022": -0.09636815600352966,
+          "2023": -0.09865689751420537,
+          "2024": -0.019982144742876407
+        },
+        "cagr": 0.003903564802383519,
+        "compound_daily": 1.0673935493997142e-05,
+        "daily_vol": 0.01157625010568967,
+        "engine_max_drawdown": 0.3693601504009574,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 0.12818749017299938,
+        "stops": 158,
+        "time_in_market": 0.981278801843318,
+        "total_return": 0.01870259617110248,
+        "trades": 3573,
+        "turnover_per_day": 0.05864262770042642,
+        "worst_day": -0.06599452170692377
+      },
+      "dev_before_costs": {
+        "avg_gross": 0.3500494770572597,
+        "by_year": {
+          "2020": 0.07974605149880332,
+          "2021": 0.21213028769909203,
+          "2022": -0.058869989281936874,
+          "2023": -0.029566730223779647,
+          "2024": -0.0035183012363392274
+        },
+        "cagr": 0.03745655201039555,
+        "compound_daily": 0.00010075053983171272,
+        "daily_vol": 0.01225279367831398,
+        "engine_max_drawdown": 0.3327768319832929,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 0.274018092528195,
+        "stops": 156,
+        "time_in_market": 0.9803667434715821,
+        "total_return": 0.19112010242652855,
+        "trades": 3669,
+        "turnover_per_day": 0.06582517869108447,
+        "worst_day": -0.06577231594827604
+      },
+      "family": "swing",
+      "holdout": {
+        "avg_gross": 0.5054678925450542,
+        "by_year": {
+          "2025": 0.2381829026347555,
+          "2026": -0.036511745181413424
+        },
+        "cagr": 0.10105563706399212,
+        "compound_daily": 0.00026378653808203646,
+        "daily_vol": 0.015463453306999234,
+        "engine_max_drawdown": 0.188804656983124,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 0.4730103707140347,
+        "stops": 59,
+        "time_in_market": 0.9876681614349776,
+        "total_return": 0.19297468400576978,
+        "trades": 1944,
+        "turnover_per_day": 0.1250083791549944,
+        "worst_day": -0.04814811174508782
+      },
+      "holdout_before_costs": {
+        "avg_gross": 0.5065815825984856,
+        "by_year": {
+          "2025": 0.2561352509553927,
+          "2026": 0.0008388732789310627
+        },
+        "cagr": 0.1330054511837404,
+        "compound_daily": 0.0003421785114069392,
+        "daily_vol": 0.015457622710804633,
+        "engine_max_drawdown": 0.16854763735403122,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 0.5699219069259936,
+        "stops": 58,
+        "time_in_market": 0.9872944693572496,
+        "total_return": 0.2571889892521444,
+        "trades": 1959,
+        "turnover_per_day": 0.12671259953024477,
+        "worst_day": -0.04731376114595165
+      },
+      "trades": {
+        "average_loss": -0.1612959570829999,
+        "average_trade": 0.057351955063959105,
+        "average_win": 0.4717925969034911,
+        "mean_hold_hours": 651.3044524669074,
+        "median_hold_hours": 422.0,
+        "payoff_ratio": 2.9250119186850756,
+        "trades": 831,
+        "trades_per_day": 0.34553014553014555,
+        "win_rate": 0.345367027677497
+      },
+      "what": "55-day breakout, out on a 20-day reversal, stop 2N"
+    },
+    "breakout_btc_trend": {
+      "dev": {
+        "avg_gross": 0.2622251369193038,
+        "by_year": {
+          "2020": 0.2657300471899622,
+          "2021": 0.08503215469562164,
+          "2022": 0.30313136335593516,
+          "2023": -0.08587000546760548,
+          "2024": -0.14835245396901375
+        },
+        "cagr": 0.07222235141693822,
+        "compound_daily": 0.00019106882257514084,
+        "daily_vol": 0.0115180499654155,
+        "engine_max_drawdown": 0.3434283061322826,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 0.42685388575970284,
+        "stops": 158,
+        "time_in_market": 0.8650153609831029,
+        "total_return": 0.3932843359920346,
+        "trades": 4353,
+        "turnover_per_day": 0.05993311152686738,
+        "worst_day": -0.06656954634142931
+      },
+      "dev_before_costs": {
+        "avg_gross": 0.2682886846448675,
+        "by_year": {
+          "2020": 0.27839921476865404,
+          "2021": 0.09954541465558475,
+          "2022": 0.33132677061606386,
+          "2023": -0.05029543845475415,
+          "2024": -0.14450935368553341
+        },
+        "cagr": 0.09209250471065977,
+        "compound_daily": 0.00024138689627568673,
+        "daily_vol": 0.011644715455939604,
+        "engine_max_drawdown": 0.3324610602454501,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 0.5071540917357877,
+        "stops": 158,
+        "time_in_market": 0.8649913594470046,
+        "total_return": 0.520435920836873,
+        "trades": 4365,
+        "turnover_per_day": 0.06184892771634383,
+        "worst_day": -0.06631848603785395
+      },
+      "family": "swing",
+      "holdout": {
+        "avg_gross": 0.2945423941772624,
+        "by_year": {
+          "2025": -0.10499635554110609,
+          "2026": 0.3281437369344764
+        },
+        "cagr": 0.09889806759248998,
+        "compound_daily": 0.00025841124812509437,
+        "daily_vol": 0.012408361747512153,
+        "engine_max_drawdown": 0.2889974885993585,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 0.5153115560006674,
+        "stops": 54,
+        "time_in_market": 0.9100647732934728,
+        "total_return": 0.18869348492161064,
+        "trades": 1649,
+        "turnover_per_day": 0.06604073758275684,
+        "worst_day": -0.04178569720724279
+      },
+      "holdout_before_costs": {
+        "avg_gross": 0.29686974558453394,
+        "by_year": {
+          "2025": -0.09240156533377164,
+          "2026": 0.3587970826492879
+        },
+        "cagr": 0.12117938914734006,
+        "compound_daily": 0.00031342214012544244,
+        "daily_vol": 0.012515030857331008,
+        "engine_max_drawdown": 0.2837844275838479,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 0.5968852365076479,
+        "stops": 54,
+        "time_in_market": 0.9101893373193821,
+        "total_return": 0.23324210524153144,
+        "trades": 1683,
+        "turnover_per_day": 0.0683355591794673,
+        "worst_day": -0.041747593068015565
+      },
+      "trades": {
+        "average_loss": -0.15379477993009658,
+        "average_trade": 0.04081380204551889,
+        "average_win": 0.35782974762250425,
+        "mean_hold_hours": 455.43457943925233,
+        "median_hold_hours": 336.0,
+        "payoff_ratio": 2.3266703056186073,
+        "trades": 1070,
+        "trades_per_day": 0.44490644490644493,
+        "win_rate": 0.38037383177570094
+      },
+      "what": "20-day breakout in the direction of Bitcoin's 200-day trend only"
+    },
+    "breakout_trail": {
+      "dev": {
+        "avg_gross": 0.3885241894177159,
+        "by_year": {
+          "2020": 0.06611489653406788,
+          "2021": 0.39091199342742144,
+          "2022": 0.12047366270578563,
+          "2023": -0.11580366441778467,
+          "2024": -0.18124529830054714
+        },
+        "cagr": 0.03959450266139575,
+        "compound_daily": 0.00010639123677608698,
+        "daily_vol": 0.012117530001931871,
+        "engine_max_drawdown": 0.4017687323776682,
+        "killed": true,
+        "liquidated": false,
+        "sharpe": 0.28340674139625566,
+        "stops": 243,
+        "time_in_market": 0.9070900537634409,
+        "total_return": 0.20283992235608972,
+        "trades": 6081,
+        "turnover_per_day": 0.10942481726886309,
+        "worst_day": -0.058137257828829614
+      },
+      "dev_before_costs": {
+        "avg_gross": 0.39728705224473526,
+        "by_year": {
+          "2020": 0.14059586993252737,
+          "2021": 0.43689181536226585,
+          "2022": 0.14359764458902613,
+          "2023": -0.0646900671900087,
+          "2024": -0.2119738023530151
+        },
+        "cagr": 0.07029595365273367,
+        "compound_daily": 0.0001861411643856604,
+        "daily_vol": 0.012246855619717585,
+        "engine_max_drawdown": 0.4019073285037892,
+        "killed": true,
+        "liquidated": false,
+        "sharpe": 0.40715298289985663,
+        "stops": 250,
+        "time_in_market": 0.9160426267281107,
+        "total_return": 0.3814186663014312,
+        "trades": 6112,
+        "turnover_per_day": 0.11220028064642669,
+        "worst_day": -0.057783666046712034
+      },
+      "family": "swing",
+      "holdout": {
+        "avg_gross": 0.6499386242024449,
+        "by_year": {
+          "2025": 0.2959179263387943,
+          "2026": -0.07018979772507716
+        },
+        "cagr": 0.1070760154451662,
+        "compound_daily": 0.00027873012389031894,
+        "daily_vol": 0.014910783741295217,
+        "engine_max_drawdown": 0.2059806019101691,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 0.49813326651568185,
+        "stops": 112,
+        "time_in_market": 0.9873567513702043,
+        "total_return": 0.2049577092207715,
+        "trades": 2460,
+        "turnover_per_day": 0.18569079530588714,
+        "worst_day": -0.051952991246514424
+      },
+      "holdout_before_costs": {
+        "avg_gross": 0.6518085884336889,
+        "by_year": {
+          "2025": 0.3455598264819688,
+          "2026": -0.019832825857390768
+        },
+        "cagr": 0.16300530963682092,
+        "compound_daily": 0.00041380460445043684,
+        "daily_vol": 0.014853007314524958,
+        "engine_max_drawdown": 0.18645709098279573,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 0.6726253707057793,
+        "stops": 113,
+        "time_in_market": 0.9886023916292974,
+        "total_return": 0.31887357276265305,
+        "trades": 2400,
+        "turnover_per_day": 0.18098164169833325,
+        "worst_day": -0.05073056553444988
+      },
+      "trades": {
+        "average_loss": -0.17412683717999394,
+        "average_trade": 0.001604481509366171,
+        "average_win": 0.21233100549646414,
+        "mean_hold_hours": 458.7257328990228,
+        "median_hold_hours": 246.0,
+        "payoff_ratio": 1.2194042511492857,
+        "trades": 1535,
+        "trades_per_day": 0.6382536382536382,
+        "win_rate": 0.4547231270358306
+      },
+      "what": "20-day breakout, trailing stop 3N"
+    },
+    "breakout_turtle": {
+      "dev": {
+        "avg_gross": 0.47144611977145634,
+        "by_year": {
+          "2020": 0.3863410162361449,
+          "2021": 0.3486398255771961,
+          "2022": 0.04552002990269788,
+          "2023": 0.41418119338381887,
+          "2024": -0.022481623238308823
+        },
+        "cagr": 0.2324587368839217,
+        "compound_daily": 0.000572797265661252,
+        "daily_vol": 0.01395330526402535,
+        "engine_max_drawdown": 0.339119284459653,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 0.9170691394434516,
+        "stops": 227,
+        "time_in_market": 0.9875672043010753,
+        "total_return": 1.7022678744576658,
+        "trades": 7540,
+        "turnover_per_day": 0.12996691781078998,
+        "worst_day": -0.06618112348318173
+      },
+      "dev_before_costs": {
+        "avg_gross": 0.48440669380794954,
+        "by_year": {
+          "2020": 0.41531957034230715,
+          "2021": 0.37226581493112554,
+          "2022": 0.08999079594008941,
+          "2023": 0.49256876272145633,
+          "2024": 0.013197533445021392
+        },
+        "cagr": 0.27717478289766584,
+        "compound_daily": 0.0006704998561406033,
+        "daily_vol": 0.014153868315516424,
+        "engine_max_drawdown": 0.32133929876405876,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 1.039683435590985,
+        "stops": 226,
+        "time_in_market": 0.986463133640553,
+        "total_return": 2.2014303611451083,
+        "trades": 7563,
+        "turnover_per_day": 0.13440638696058282,
+        "worst_day": -0.06701221239888722
+      },
+      "family": "swing",
+      "holdout": {
+        "avg_gross": 0.6441505142989976,
+        "by_year": {
+          "2025": 0.04205491361196656,
+          "2026": 0.14056507920870587
+        },
+        "cagr": 0.09881633608188989,
+        "compound_daily": 0.00025820741837568413,
+        "daily_vol": 0.015824850061129214,
+        "engine_max_drawdown": 0.24873283093520215,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 0.4613263359326356,
+        "stops": 100,
+        "time_in_market": 0.990159441953164,
+        "total_return": 0.18853144508365505,
+        "trades": 3428,
+        "turnover_per_day": 0.1914940524463329,
+        "worst_day": -0.04938129380020273
+      },
+      "holdout_before_costs": {
+        "avg_gross": 0.6526459592764702,
+        "by_year": {
+          "2025": 0.10455551687782672,
+          "2026": 0.2155586085973884
+        },
+        "cagr": 0.17439889926712682,
+        "compound_daily": 0.0004405256100567735,
+        "daily_vol": 0.015952487871109665,
+        "engine_max_drawdown": 0.2266010603345594,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 0.6782653677297857,
+        "stops": 99,
+        "time_in_market": 0.9904708520179372,
+        "total_return": 0.3426519672145827,
+        "trades": 3390,
+        "turnover_per_day": 0.19095772269562075,
+        "worst_day": -0.0490323843742938
+      },
+      "trades": {
+        "average_loss": -0.14675411905470803,
+        "average_trade": 0.028073102295946055,
+        "average_win": 0.32928815564213665,
+        "mean_hold_hours": 440.5619883040936,
+        "median_hold_hours": 312.5,
+        "payoff_ratio": 2.2438086083252102,
+        "trades": 1710,
+        "trades_per_day": 0.7110187110187111,
+        "win_rate": 0.3672514619883041
+      },
+      "what": "20-day breakout, out on a 10-day reversal, stop 2N"
+    },
+    "dip_in_trend": {
+      "dev": {
+        "avg_gross": 0.057747260181805676,
+        "by_year": {
+          "2020": -0.03145378344380556,
+          "2021": -0.16611449094334962,
+          "2022": -0.1255939041093086,
+          "2023": -0.06196396201664078,
+          "2024": 0.0
+        },
+        "cagr": -0.08293913256207619,
+        "compound_daily": -0.00023718127142766395,
+        "daily_vol": 0.0056734956229156875,
+        "engine_max_drawdown": 0.4004058656841293,
+        "killed": true,
+        "liquidated": false,
+        "sharpe": -0.7445312260243172,
+        "stops": 120,
+        "time_in_market": 0.3615111367127496,
+        "total_return": -0.33754028082937426,
+        "trades": 1691,
+        "turnover_per_day": 0.04395519040199463,
+        "worst_day": -0.04725897478818708
+      },
+      "dev_before_costs": {
+        "avg_gross": 0.07626685106368163,
+        "by_year": {
+          "2020": -0.01585571123795504,
+          "2021": -0.15055410929558077,
+          "2022": -0.1152506084456616,
+          "2023": -0.08946782272918774,
+          "2024": 0.0
+        },
+        "cagr": -0.0797589588342742,
+        "compound_daily": -0.00022769911916300755,
+        "daily_vol": 0.006043919559874058,
+        "engine_max_drawdown": 0.4011996818318472,
+        "killed": true,
+        "liquidated": false,
+        "sharpe": -0.6620332504257638,
+        "stops": 146,
+        "time_in_market": 0.46678187403993854,
+        "total_return": -0.32654269697554195,
+        "trades": 2204,
+        "turnover_per_day": 0.057309641534219385,
+        "worst_day": -0.048620257891515806
+      },
+      "family": "swing",
+      "holdout": {
+        "avg_gross": 0.20861740271698626,
+        "by_year": {
+          "2025": -0.05061753442127048,
+          "2026": -0.19400149614372175
+        },
+        "cagr": -0.13585028109576647,
+        "compound_daily": -0.0003999453140255752,
+        "daily_vol": 0.010032016307134496,
+        "engine_max_drawdown": 0.257089536946557,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": -0.6656936332574733,
+        "stops": 68,
+        "time_in_market": 0.7545465869456901,
+        "total_return": -0.23479915315615896,
+        "trades": 1585,
+        "turnover_per_day": 0.1617367819669125,
+        "worst_day": -0.04862088269503506
+      },
+      "holdout_before_costs": {
+        "avg_gross": 0.21320712534288647,
+        "by_year": {
+          "2025": -0.014445096905894128,
+          "2026": -0.14946195198335865
+        },
+        "cagr": -0.09177406796625753,
+        "compound_daily": -0.0002636970272136364,
+        "daily_vol": 0.010121902685982367,
+        "engine_max_drawdown": 0.19149624412299127,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": -0.40093266595464067,
+        "stops": 68,
+        "time_in_market": 0.7544843049327354,
+        "total_return": -0.16174805650911006,
+        "trades": 1582,
+        "turnover_per_day": 0.1657243947227603,
+        "worst_day": -0.04803737873269942
+      },
+      "trades": {
+        "average_loss": -0.09391455742363719,
+        "average_trade": 0.005749218249486587,
+        "average_win": 0.06756718516794878,
+        "mean_hold_hours": 99.37989479836352,
+        "median_hold_hours": 96.0,
+        "payoff_ratio": 0.7194537995122673,
+        "trades": 1711,
+        "trades_per_day": 0.7114345114345114,
+        "win_rate": 0.6171829339567504
+      },
+      "what": "two-day RSI dip in a 200-day trend, out beyond the 5-day average"
+    },
+    "fade_bands": {
+      "dev": {
+        "avg_gross": 0.04483091083592206,
+        "by_year": {
+          "2020": -0.34793099533784466,
+          "2021": -0.06474039127719644,
+          "2022": 0.0,
+          "2023": 0.0,
+          "2024": 0.0
+        },
+        "cagr": -0.09875479181164637,
+        "compound_daily": -0.00028483040687639376,
+        "daily_vol": 0.0043485024992719855,
+        "engine_max_drawdown": 0.4001723854675332,
+        "killed": true,
+        "liquidated": false,
+        "sharpe": -1.2095067522612764,
+        "stops": 14,
+        "time_in_market": 0.18519585253456222,
+        "total_return": -0.39014619783940496,
+        "trades": 17699,
+        "turnover_per_day": 0.4331739705709536,
+        "worst_day": -0.04814269761713197
+      },
+      "dev_before_costs": {
+        "avg_gross": 0.2585224837564066,
+        "by_year": {
+          "2020": 0.004853439725994502,
+          "2021": -0.0941733162629923,
+          "2022": -0.0980748189888504,
+          "2023": 0.01149143957283072,
+          "2024": -0.13086551776922695
+        },
+        "cagr": -0.06627005858748569,
+        "compound_daily": -0.0001878399572889951,
+        "daily_vol": 0.010706708093979604,
+        "engine_max_drawdown": 0.3892582753229513,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": -0.2321952123526084,
+        "stops": 78,
+        "time_in_market": 0.8768961213517665,
+        "total_return": -0.2782819985329037,
+        "trades": 82307,
+        "turnover_per_day": 2.0134114380553703,
+        "worst_day": -0.0650944340069406
+      },
+      "family": "day",
+      "holdout": {
+        "avg_gross": 0.06744118026044542,
+        "by_year": {
+          "2025": -0.3940111394201372,
+          "2026": 0.0
+        },
+        "cagr": -0.23912241688883829,
+        "compound_daily": -0.0007484397715975867,
+        "daily_vol": 0.005147144145730264,
+        "engine_max_drawdown": 0.40024363213229297,
+        "killed": true,
+        "liquidated": false,
+        "sharpe": -2.728576180346399,
+        "stops": 9,
+        "time_in_market": 0.27927254608868957,
+        "total_return": -0.3940111394201372,
+        "trades": 10169,
+        "turnover_per_day": 0.6267448560245841,
+        "worst_day": -0.03517323199506761
+      },
+      "holdout_before_costs": {
+        "avg_gross": 0.24453464406947148,
+        "by_year": {
+          "2025": -0.15870656053277044,
+          "2026": -0.21853907586449506
+        },
+        "cagr": -0.20453091788297217,
+        "compound_daily": -0.0006267166760385821,
+        "daily_vol": 0.009329395566470862,
+        "engine_max_drawdown": 0.3902923615043843,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": -1.1941659226394388,
+        "stops": 78,
+        "time_in_market": 0.8842177379172895,
+        "total_return": -0.34256205132480266,
+        "trades": 31471,
+        "turnover_per_day": 1.895885843868317,
+        "worst_day": -0.04279069322533591
+      },
+      "trades": {
+        "average_loss": -0.03362473993770158,
+        "average_trade": 0.0003518149685404544,
+        "average_win": 0.024782064870623104,
+        "mean_hold_hours": 8.29746803584013,
+        "median_hold_hours": 8.0,
+        "payoff_ratio": 0.7370187819010113,
+        "trades": 39732,
+        "trades_per_day": 16.52058212058212,
+        "win_rate": 0.5817225410248666
+      },
+      "what": "fade an hourly close outside the Bollinger band to its middle, stop N/2"
+    },
+    "morning_momentum": {
+      "dev": {
+        "avg_gross": 0.09537968967622602,
+        "by_year": {
+          "2020": -0.12841171749172753,
+          "2021": -0.22976973712333437,
+          "2022": -0.0484130732169602,
+          "2023": 0.0,
+          "2024": 0.0
+        },
+        "cagr": -0.08991792117287745,
+        "compound_daily": -0.00025810500578786954,
+        "daily_vol": 0.006249823541699671,
+        "engine_max_drawdown": 0.4007853877232149,
+        "killed": true,
+        "liquidated": false,
+        "sharpe": -0.7294437688125276,
+        "stops": 16,
+        "time_in_market": 0.19196428571428573,
+        "total_return": -0.3611771701261419,
+        "trades": 30788,
+        "turnover_per_day": 0.5833382691703322,
+        "worst_day": -0.04145882213564134
+      },
+      "dev_before_costs": {
+        "avg_gross": 0.2842947070621879,
+        "by_year": {
+          "2020": 0.29645308850790886,
+          "2021": -0.01963157928270587,
+          "2022": -0.12230644300392257,
+          "2023": 0.09454615955148737,
+          "2024": -0.02450777895548073
+        },
+        "cagr": 0.037452216593180765,
+        "compound_daily": 0.00010073908963959399,
+        "daily_vol": 0.009618949360562479,
+        "engine_max_drawdown": 0.3578120208947758,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 0.29163599884784597,
+        "stops": 39,
+        "time_in_market": 0.4978398617511521,
+        "total_return": 0.19109642851708042,
+        "trades": 80168,
+        "turnover_per_day": 1.4038071007445632,
+        "worst_day": -0.04009937208129044
+      },
+      "family": "day",
+      "holdout": {
+        "avg_gross": 0.2681765886484231,
+        "by_year": {
+          "2025": -0.31451727753608705,
+          "2026": -0.07056873174807898
+        },
+        "cagr": -0.218046517966203,
+        "compound_daily": -0.0006736360904576616,
+        "daily_vol": 0.009016241992810007,
+        "engine_max_drawdown": 0.4002734580580737,
+        "killed": true,
+        "liquidated": false,
+        "sharpe": -1.3419064451018907,
+        "stops": 46,
+        "time_in_market": 0.4987543597409068,
+        "total_return": -0.3628909238955855,
+        "trades": 30556,
+        "turnover_per_day": 1.317552511458295,
+        "worst_day": -0.02739788331940285
+      },
+      "holdout_before_costs": {
+        "avg_gross": 0.41219449701825406,
+        "by_year": {
+          "2025": 0.0468485424707048,
+          "2026": 0.5861744182003508
+        },
+        "cagr": 0.3187364088263054,
+        "compound_daily": 0.000758298354951551,
+        "daily_vol": 0.012977812070101149,
+        "engine_max_drawdown": 0.17526736788314157,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 1.2383937011751567,
+        "stops": 50,
+        "time_in_market": 0.4994394618834081,
+        "total_return": 0.6604843777973544,
+        "trades": 30859,
+        "turnover_per_day": 2.076324188815116,
+        "worst_day": -0.03343370126747991
+      },
+      "trades": {
+        "average_loss": -0.028597265978869506,
+        "average_trade": 0.0004635636216846489,
+        "average_win": 0.032281387675254146,
+        "mean_hold_hours": 10.676714157575251,
+        "median_hold_hours": 12.0,
+        "payoff_ratio": 1.128827759237783,
+        "trades": 47939,
+        "trades_per_day": 19.933056133056134,
+        "win_rate": 0.47735664073092887
+      },
+      "what": "at 12:00 UTC go with the day's move so far, stop N/2"
+    },
+    "orb_ny": {
+      "dev": {
+        "avg_gross": 0.014256852240126357,
+        "by_year": {
+          "2020": -0.3591484758640239,
+          "2021": -0.06217484609471391,
+          "2022": 0.0,
+          "2023": 0.0,
+          "2024": 0.0
+        },
+        "cagr": -0.10151959856863813,
+        "compound_daily": -0.00029324572256700837,
+        "daily_vol": 0.0022462231769066264,
+        "engine_max_drawdown": 0.40026881730837194,
+        "killed": true,
+        "liquidated": false,
+        "sharpe": -2.4727074925049655,
+        "stops": 2,
+        "time_in_market": 0.04001056067588326,
+        "total_return": -0.398993320746741,
+        "trades": 12297,
+        "turnover_per_day": 0.2894467595464129,
+        "worst_day": -0.021584032085416704
+      },
+      "dev_before_costs": {
+        "avg_gross": 0.09131751716195424,
+        "by_year": {
+          "2020": -0.1937631094722384,
+          "2021": -0.0360881932263194,
+          "2022": 0.16534284759835005,
+          "2023": 0.11097729236300835,
+          "2024": -0.04604957364172135
+        },
+        "cagr": -0.008587785521245395,
+        "compound_daily": -2.3629509961383597e-05,
+        "daily_vol": 0.006758644387992593,
+        "engine_max_drawdown": 0.28031892592147023,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": -0.0025507361419204676,
+        "stops": 9,
+        "time_in_market": 0.20250096006144394,
+        "total_return": -0.04019132758584787,
+        "trades": 62825,
+        "turnover_per_day": 1.5233897673300174,
+        "worst_day": -0.031506722983093094
+      },
+      "family": "day",
+      "holdout": {
+        "avg_gross": 0.08345285863996522,
+        "by_year": {
+          "2025": -0.22127770749526743,
+          "2026": -0.1919704919366636
+        },
+        "cagr": -0.2233370875809163,
+        "compound_daily": -0.0006922229192499898,
+        "daily_vol": 0.006427274654955162,
+        "engine_max_drawdown": 0.40029451835063223,
+        "killed": true,
+        "liquidated": false,
+        "sharpe": -1.9965995831482697,
+        "stops": 18,
+        "time_in_market": 0.2050946686596911,
+        "total_return": -0.37076940906944744,
+        "trades": 25134,
+        "turnover_per_day": 1.350164834761324,
+        "worst_day": -0.027578294725125074
+      },
+      "holdout_before_costs": {
+        "avg_gross": 0.11218131206675987,
+        "by_year": {
+          "2025": 0.2357154717501715,
+          "2026": 0.09511362703730142
+        },
+        "cagr": 0.1794469143191506,
+        "compound_daily": 0.0004522820073544967,
+        "daily_vol": 0.007961961144581996,
+        "engine_max_drawdown": 0.11004860129460736,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 1.1608926450741583,
+        "stops": 19,
+        "time_in_market": 0.20559292476332836,
+        "total_return": 0.353248852254443,
+        "trades": 25276,
+        "turnover_per_day": 1.783563024646054,
+        "worst_day": -0.04291403650522174
+      },
+      "trades": {
+        "average_loss": -0.015758461284285177,
+        "average_trade": -5.1742334205002506e-05,
+        "average_win": 0.019447814638031122,
+        "mean_hold_hours": 3.6558953429865264,
+        "median_hold_hours": 4.0,
+        "payoff_ratio": 1.2341188830044645,
+        "trades": 35774,
+        "trades_per_day": 14.874844074844075,
+        "win_rate": 0.44613406384525073
+      },
+      "what": "breakout of the 13:00-15:00 UTC range, flat at 21:00 UTC"
+    },
+    "orb_utc": {
+      "dev": {
+        "avg_gross": 0.08878350422363378,
+        "by_year": {
+          "2020": -0.26188739219001766,
+          "2021": -0.13196003060034545,
+          "2022": 0.0,
+          "2023": 0.0,
+          "2024": 0.0
+        },
+        "cagr": -0.08935293929671839,
+        "compound_daily": -0.00025640514020851604,
+        "daily_vol": 0.006010010430597873,
+        "engine_max_drawdown": 0.4002744211428213,
+        "killed": true,
+        "liquidated": false,
+        "sharpe": -0.7577101984786843,
+        "stops": 20,
+        "time_in_market": 0.2772177419354839,
+        "total_return": -0.3592887545031228,
+        "trades": 34258,
+        "turnover_per_day": 0.6140363664518345,
+        "worst_day": -0.03820033277218493
+      },
+      "dev_before_costs": {
+        "avg_gross": 0.392802448429945,
+        "by_year": {
+          "2020": 0.2018909574063501,
+          "2021": 0.2912181613338556,
+          "2022": -0.0032596104014180893,
+          "2023": 0.4349979351048512,
+          "2024": -0.09578112221492596
+        },
+        "cagr": 0.15775515635405135,
+        "compound_daily": 0.000401403609754531,
+        "daily_vol": 0.012736899450010832,
+        "engine_max_drawdown": 0.2773665805367038,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 0.7230692161476175,
+        "stops": 48,
+        "time_in_market": 0.7708333333333334,
+        "total_return": 1.0071119490816636,
+        "trades": 97938,
+        "turnover_per_day": 2.372593973442922,
+        "worst_day": -0.03682226088307161
+      },
+      "family": "day",
+      "holdout": {
+        "avg_gross": 0.27342350957653994,
+        "by_year": {
+          "2025": -0.2713125091515617,
+          "2026": -0.14002492405821754
+        },
+        "cagr": -0.22507446737472214,
+        "compound_daily": -0.0006983542321101845,
+        "daily_vol": 0.01079535387592061,
+        "engine_max_drawdown": 0.40032445576427833,
+        "killed": true,
+        "liquidated": false,
+        "sharpe": -1.1332540886516196,
+        "stops": 30,
+        "time_in_market": 0.5975336322869955,
+        "total_return": -0.37334691971978784,
+        "trades": 30386,
+        "turnover_per_day": 1.7407223775869067,
+        "worst_day": -0.03377753132861583
+      },
+      "holdout_before_costs": {
+        "avg_gross": 0.48618216115556057,
+        "by_year": {
+          "2025": 0.47835937330286393,
+          "2026": 0.24721902779851668
+        },
+        "cagr": 0.3962905179699938,
+        "compound_daily": 0.0009149911989120385,
+        "daily_vol": 0.01559233210727454,
+        "engine_max_drawdown": 0.14906113208320682,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 1.268112198251887,
+        "stops": 59,
+        "time_in_market": 0.783383158943697,
+        "total_return": 0.8438379403076228,
+        "trades": 40054,
+        "turnover_per_day": 2.921469073523703,
+        "worst_day": -0.04937543281019896
+      },
+      "trades": {
+        "average_loss": -0.028902077209479557,
+        "average_trade": 0.0010454796043300174,
+        "average_win": 0.037948782834840836,
+        "mean_hold_hours": 12.272719070711627,
+        "median_hold_hours": 13.0,
+        "payoff_ratio": 1.3130122987282749,
+        "trades": 44335,
+        "trades_per_day": 18.434511434511435,
+        "win_rate": 0.44797564001353335
+      },
+      "what": "breakout of the first four hours of the UTC day, stop at the far side"
+    },
+    "prev_day_breakout": {
+      "dev": {
+        "avg_gross": 0.08430591882760652,
+        "by_year": {
+          "2020": -0.22800019457425835,
+          "2021": -0.1408386764839764,
+          "2022": -0.04725604896686286,
+          "2023": 0.0,
+          "2024": 0.0
+        },
+        "cagr": -0.091991778026983,
+        "compound_daily": -0.0002643536699039124,
+        "daily_vol": 0.0061462731453722046,
+        "engine_max_drawdown": 0.4010013033197293,
+        "killed": true,
+        "liquidated": false,
+        "sharpe": -0.7629235284681276,
+        "stops": 20,
+        "time_in_market": 0.35851094470046085,
+        "total_return": -0.3680712572280008,
+        "trades": 27301,
+        "turnover_per_day": 0.49014409345591337,
+        "worst_day": -0.07351296297283849
+      },
+      "dev_before_costs": {
+        "avg_gross": 0.2181344333505792,
+        "by_year": {
+          "2020": 0.16400591938819442,
+          "2021": 0.16075439123696356,
+          "2022": -0.23335055276963523,
+          "2023": -0.11325855441234278,
+          "2024": -0.008382393511386255
+        },
+        "cagr": -0.019447679879232127,
+        "compound_daily": -5.3804782925136e-05,
+        "daily_vol": 0.010598760082653893,
+        "engine_max_drawdown": 0.40027865223445,
+        "killed": true,
+        "liquidated": false,
+        "sharpe": 0.0037537735184157324,
+        "stops": 30,
+        "time_in_market": 0.6924443164362519,
+        "total_return": -0.08917784112888416,
+        "trades": 50641,
+        "turnover_per_day": 1.1211360718620815,
+        "worst_day": -0.07707973142447111
+      },
+      "family": "day",
+      "holdout": {
+        "avg_gross": 0.2845285541947304,
+        "by_year": {
+          "2025": -0.2577751959821881,
+          "2026": -0.12258818326588894
+        },
+        "cagr": -0.20863334108023535,
+        "compound_daily": -0.0006408736764038314,
+        "daily_vol": 0.011964165693469449,
+        "engine_max_drawdown": 0.4016799110806123,
+        "killed": true,
+        "liquidated": false,
+        "sharpe": -0.9100608528606785,
+        "stops": 54,
+        "time_in_market": 0.7852516193323368,
+        "total_return": -0.34876318628161085,
+        "trades": 23281,
+        "turnover_per_day": 1.4446850525747006,
+        "worst_day": -0.04608719406728068
+      },
+      "holdout_before_costs": {
+        "avg_gross": 0.4133327034664294,
+        "by_year": {
+          "2025": 0.20269567509410802,
+          "2026": 0.2457538209021939
+        },
+        "cagr": 0.24680668038301756,
+        "compound_daily": 0.0006045268360806479,
+        "daily_vol": 0.01627859144143316,
+        "engine_max_drawdown": 0.20792772703200513,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 0.8624564672488715,
+        "stops": 62,
+        "time_in_market": 0.8907573492775287,
+        "total_return": 0.49826273263102694,
+        "trades": 26352,
+        "turnover_per_day": 2.061713067474131,
+        "worst_day": -0.04453514834775407
+      },
+      "trades": {
+        "average_loss": -0.03243771273816273,
+        "average_trade": -0.0005845986699900948,
+        "average_win": 0.040342150988415065,
+        "mean_hold_hours": 13.368454702384758,
+        "median_hold_hours": 13.0,
+        "payoff_ratio": 1.2436805058993206,
+        "trades": 31282,
+        "trades_per_day": 13.007068607068607,
+        "win_rate": 0.43766383223579053
+      },
+      "what": "breakout of the previous day's high or low, stop N/2"
+    },
+    "pullback_2r": {
+      "dev": {
+        "avg_gross": 0.2775975556433883,
+        "by_year": {
+          "2020": -0.19258932197817502,
+          "2021": 0.3228325246406685,
+          "2022": -0.2817963175620274,
+          "2023": -0.08817402042493816,
+          "2024": 0.0
+        },
+        "cagr": -0.07240151401424288,
+        "compound_daily": -0.00020588648955339786,
+        "daily_vol": 0.010079616893868026,
+        "engine_max_drawdown": 0.40068219285767337,
+        "killed": true,
+        "liquidated": false,
+        "sharpe": -0.29372151248754785,
+        "stops": 127,
+        "time_in_market": 0.6282882104454686,
+        "total_return": -0.30054634726815177,
+        "trades": 4473,
+        "turnover_per_day": 0.0844422088536,
+        "worst_day": -0.08076836623653527
+      },
+      "dev_before_costs": {
+        "avg_gross": 0.28718372342092896,
+        "by_year": {
+          "2020": -0.15727526988922014,
+          "2021": 0.3797840701360111,
+          "2022": -0.2619696482716557,
+          "2023": -0.1087330147225336,
+          "2024": 0.0
+        },
+        "cagr": -0.054803591153468556,
+        "compound_daily": -0.0001544059768957016,
+        "daily_vol": 0.010203655343748086,
+        "engine_max_drawdown": 0.40010470339773596,
+        "killed": true,
+        "liquidated": false,
+        "sharpe": -0.19144421153331115,
+        "stops": 127,
+        "time_in_market": 0.6390168970814132,
+        "total_return": -0.23514535686842974,
+        "trades": 4569,
+        "turnover_per_day": 0.08644997657882254,
+        "worst_day": -0.08031545684658381
+      },
+      "family": "swing",
+      "holdout": {
+        "avg_gross": 0.5749623395999572,
+        "by_year": {
+          "2025": -0.007550466168198655,
+          "2026": -0.21333955509600555
+        },
+        "cagr": -0.12633144044729827,
+        "compound_daily": -0.00036994305481530227,
+        "daily_vol": 0.012544138692953117,
+        "engine_max_drawdown": 0.33349885865843554,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": -0.4436014706284584,
+        "stops": 84,
+        "time_in_market": 0.9753363228699552,
+        "total_return": -0.2192792081711138,
+        "trades": 2976,
+        "turnover_per_day": 0.185959840222748,
+        "worst_day": -0.040025210484488705
+      },
+      "holdout_before_costs": {
+        "avg_gross": 0.6983569949601603,
+        "by_year": {
+          "2025": 0.1535922299792718,
+          "2026": -0.08510741740759775
+        },
+        "cagr": 0.02986204577551521,
+        "compound_daily": 8.061929649514103e-05,
+        "daily_vol": 0.015020323406791446,
+        "engine_max_drawdown": 0.20183678595128574,
+        "killed": false,
+        "liquidated": false,
+        "sharpe": 0.24567666270316113,
+        "stops": 78,
+        "time_in_market": 0.9682984554060787,
+        "total_return": 0.05541297454426464,
+        "trades": 3027,
+        "turnover_per_day": 0.23519072107511002,
+        "worst_day": -0.04511258632527071
+      },
+      "trades": {
+        "average_loss": -0.13860508911178807,
+        "average_trade": -0.0051589759616386035,
+        "average_win": 0.23369996613733393,
+        "mean_hold_hours": 304.12119649303764,
+        "median_hold_hours": 186.0,
+        "payoff_ratio": 1.6860850321942347,
+        "trades": 1939,
+        "trades_per_day": 0.8062370062370062,
+        "win_rate": 0.35843218153687467
+      },
+      "what": "pullback to the 20-day EMA in a 20/50 EMA trend, stop 1.5N, target 2R"
+    }
+  }
+}
