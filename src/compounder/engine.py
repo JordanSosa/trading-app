@@ -42,6 +42,10 @@ class EngineParams:
     # beyond its trigger: this fraction of the distance between the trigger and
     # the bar's extreme is given up (0 = fill at the trigger, 1 = at the extreme).
     stop_overshoot: float = 0.25
+    # After a stop-out that side of the symbol stays closed until the signal has
+    # left it. With a cooldown > 0 it also reopens after this many bars, so one
+    # wick does not keep the account out of the rest of a trend.
+    stop_cooldown_bars: int = 0
     # --- venue constraints -------------------------------------------------------
     min_notional: float = 5.0         # smallest order the venue accepts, in USDT
     min_position_mult: float = 2.0    # only open positions of at least this many min_notionals
@@ -82,6 +86,7 @@ class EngineState:
     entry_price: np.ndarray           # average fill price of the open position (NaN when flat)
     stop_price: np.ndarray            # protective stop (NaN = none)
     blocked: np.ndarray               # +1/-1: side that was stopped out and may not be re-entered yet
+    blocked_until: np.ndarray         # close time (ms) at which a cooldown releases the block (NaN = none)
     last_price: np.ndarray            # last known price per symbol (NaN before the first bar)
     pending: np.ndarray | None = None       # weights to execute at the next open
     pending_stop: np.ndarray | None = None  # stop distance (fraction of price) for new positions
@@ -117,12 +122,13 @@ class EngineState:
         n = len(symbols)
         return cls(symbols=tuple(symbols), initial_equity=float(initial_equity), cash=float(initial_equity),
                    qty=np.zeros(n), entry_price=np.full(n, np.nan), stop_price=np.full(n, np.nan),
-                   blocked=np.zeros(n), last_price=np.full(n, np.nan), hwm=float(initial_equity),
+                   blocked=np.zeros(n), blocked_until=np.full(n, np.nan), last_price=np.full(n, np.nan),
+                   hwm=float(initial_equity),
                    peak_equity=float(initial_equity), day_start_equity=float(initial_equity),
                    day_peak_equity=float(initial_equity), last_equity=float(initial_equity))
 
     # ------------------------------------------------------------ serialisation
-    _ARRAYS = ("qty", "entry_price", "stop_price", "blocked", "last_price")
+    _ARRAYS = ("qty", "entry_price", "stop_price", "blocked", "blocked_until", "last_price")
     _OPT_ARRAYS = ("pending", "pending_stop")
 
     def to_dict(self) -> dict[str, Any]:
@@ -145,8 +151,8 @@ class EngineState:
         stored = tuple(d["symbols"])
         symbols = tuple(symbols) if symbols is not None else stored
         kw: dict[str, Any] = {}
-        defaults = {"qty": 0.0, "entry_price": np.nan, "stop_price": np.nan, "blocked": 0.0, "last_price": np.nan,
-                    "pending": 0.0, "pending_stop": np.nan}
+        defaults = {"qty": 0.0, "entry_price": np.nan, "stop_price": np.nan, "blocked": 0.0,
+                    "blocked_until": np.nan, "last_price": np.nan, "pending": 0.0, "pending_stop": np.nan}
         for k in cls._ARRAYS + cls._OPT_ARRAYS:
             raw = d.get(k)
             if raw is None:
@@ -334,6 +340,8 @@ class Engine:
                     side = -1.0
                 self._book(close_ms - 1, j, -float(s.qty[j]), fill, "stop")
                 s.blocked[j] = side
+                s.blocked_until[j] = (close_ms + p.stop_cooldown_bars * p.interval_ms
+                                      if p.stop_cooldown_bars > 0 else np.nan)
                 s.stop_count += 1
                 if self.record:
                     self._event(close_ms, "stop", f"{s.symbols[j]}: protective stop filled at {fill:.6g}",
@@ -431,9 +439,11 @@ class Engine:
         # 5) decide the weights for the next open -----------------------------
         w = np.nan_to_num(np.asarray(target, dtype="float64"), nan=0.0, posinf=0.0, neginf=0.0).copy()
         if s.blocked.any():
-            # A stopped-out side stays out until the signal has left that side.
-            released = (s.blocked != 0.0) & (np.sign(w) != s.blocked)
+            # A stopped-out side stays out until the signal has left that side
+            # (or, with a cooldown, until the cooldown has run out).
+            released = (s.blocked != 0.0) & ((np.sign(w) != s.blocked) | (close_ms >= s.blocked_until))
             s.blocked[released] = 0.0
+            s.blocked_until[released] = np.nan
             w[s.blocked != 0.0] = 0.0
         if s.killed:
             w[:] = 0.0

@@ -1,68 +1,152 @@
-# Strategy selection (decided before the holdout was evaluated)
+# Selection (committed before HOLDOUT was evaluated)
 
-Selection used only 2018-2024 data (TRAIN + VALID = DEV). The 2025-01-01 to
-present holdout had not been evaluated by anyone when this file was committed.
+All numbers here use bars before 2025-01-01. Raw output:
+`research/results/valid_check.json`, `risk_stops_dev.json`,
+`risk_governor_dev.json`, `risk_levels_dev.json`, `frozen_dev_checks.json`,
+`spot_dev.json`.
 
-## Candidates and audits
+## 1. VALID check of the frozen candidates (2024, run once)
 
-Four research agents designed strategy families on TRAIN (2018-2023) and
-validated each candidate once on VALID (2024). An independent auditor per
-family then re-read the code for look-ahead bias, re-ran causality and window
-checks, reproduced every number, and perturbed every parameter.
+After 8 bps a side, fast linear backtest, at a 2% daily volatility target.
 
-| Family | Audit verdict | Overfit risk | Notes |
-|---|---|---|---|
-| breakout | pass with concerns | medium | Donchian warm-up too short (fixed: latch and EMA warm-ups enlarged; all pass the warmup+1 window check on real data) |
-| trend | pass with concerns | medium | regime filter adds nothing; edge concentrated in a few trends |
-| regime | pass with concerns | medium | edge sits on a narrow circuit-breaker setting; regime layer not supported on VALID |
-| meanrev | pass with concerns | **high** | parameter cliffs; TRAIN does not predict VALID -> **excluded** |
+| Candidate | TRAIN Sharpe | VALID Sharpe | VALID CAGR | VALID max drawdown | DEV Sharpe | DEV at doubled costs |
+|---|---:|---:|---:|---:|---:|---:|
+| T0 trend | 1.77 | 0.89 | 25% | 15% | 1.61 | 1.28 |
+| X0 cross-sectional momentum | 1.92 | 1.65 | 81% | 23% | 1.86 | 1.35 |
+| B0 blend | 1.97 | 1.26 | 39% | 12% | 1.84 | 1.51 |
 
-No look-ahead was found anywhere, and every reported number reproduced.
+Both families are positive on VALID, so both stay. VALID is well below
+TRAIN for trend and for the blend: the in-sample figures are inflated, as
+expected.
 
-## Robustness-weighted ranking (`scripts/robust_select.py`)
+**Blend or best member?** The rule says the blend is used only if it beats
+its best member on DEV. On the raw Sharpe ratio the two are tied (X0 1.86,
+B0 1.84), which the rule does not settle. The tie is resolved by the
+protocol's objective, compound growth under the drawdown constraints, and
+by cost robustness: X0 alone needs 2.0x gross exposure, has a 48% drawdown
+at 2.4% daily volatility and drops to 1.35 at doubled costs; B0 has a 26%
+drawdown at 1.9% volatility and 1.51 at doubled costs. **B0 is selected.**
+This is a judgement call and is recorded as one.
 
-DEV campaign score (mean log(1+r) of 30-day campaigns started daily), averaged
-over the default parameters, each numeric parameter at -30/-15/+15/+30%, and the
-circuit breaker disabled.
+## 2. Stops (DEV, full engine, governor off, 2% volatility target)
 
-| Strategy | Robust mean | Worst variant | Default | No circuit breaker |
+| Protective stop | Compound per day | Sharpe | Max drawdown | Worst day |
 |---|---:|---:|---:|---:|
-| regime_volswitch | 0.03919 | 0.0328 | 0.0419 | 0.0353 |
-| **breakout_dual** | **0.03915** | **0.0351** | 0.0401 | **0.0381** |
-| breakout_keltner | 0.03910 | 0.0345 | 0.0407 | 0.0359 |
-| regime_confirm | 0.03839 | 0.0330 | 0.0407 | 0.0350 |
-| trend_sma_band | 0.03640 | 0.0328 | 0.0379 | 0.0365 |
-| trend_sma_band_regime | 0.03571 | 0.0325 | 0.0369 | 0.0347 |
-| breakout_donchian | 0.03559 | 0.0295 | 0.0365 | 0.0394 |
-| trend_strength | 0.03252 | 0.0282 | 0.0324 | 0.0338 |
-| buy_hold (same risk overlay) | 0.0199 | | | |
+| none | 0.166% | 1.86 | 28.2% | -7.6% |
+| 2 daily sigmas | 0.134% | 1.54 | 26.5% | -9.6% |
+| 3 daily sigmas | 0.149% | 1.67 | 27.8% | -10.6% |
+| 4 daily sigmas | 0.152% | 1.70 | 28.0% | -9.7% |
 
-Blends of trend and breakout were also tested on DEV (0.0355-0.0368). None
-beat the best single strategy: the signals are highly correlated, and partial
-exposures add rebalancing cost.
+Stops cost growth: they fill on wicks that later recover. Letting the stopped
+side back in after 24 or 72 hours changes nothing (0.147-0.151%). With
+stops filled at the bar's extreme (worst case) the 3-sigma result is 0.136%.
 
-## Decision: `breakout_dual` (default parameters)
+**4 sigma is selected** (cost 8% of growth, inside the 10% rule). The reason
+is not in the backtest: the simulation assumes the bot acts at every hourly
+close, and a real deployment has outages. A resting stop on the exchange is
+the only protection while the bot is offline, and the only cap on a short
+that doubles in an hour.
 
-`regime_volswitch` and `breakout_dual` differ by 0.00004 in robust mean, about
-1/300 of the score's standard error (~0.012), so the primary metric is a tie.
-The tie was broken on the criteria that matter for an unattended 30-day run:
+## 3. Risk governor (DEV, full engine, 3-sigma stops, 2% target)
 
-* Higher worst-case variant (0.0351 vs 0.0328), so less parameter fragility.
-* Much less dependence on the circuit-breaker setting (0.0381 vs 0.0353 with
-  the breaker off). The regime auditor flagged this coupling as a knife edge.
-* Non-negative score in all 6 TRAIN years, including the 2018 and 2022 bear
-  markets (regime_volswitch: 4 of 6).
-* Best loss tail of the finalists (TRAIN p05 -8.2%; buy-and-hold -16.4%).
+| Rule | Compound per day | Max drawdown | Worst day | Adopted |
+|---|---:|---:|---:|---|
+| none | 0.149% | 27.8% | -10.6% | |
+| flatten at +2% on the day | 0.065% | 35.0% | -9.0% | no |
+| trail after +2% (give back half) | 0.033% | 41.9% | -9.0% | no |
+| flatten at +3% / +5% | 0.111% / 0.151% | 31.2% / 28.9% | -10.6% | no |
+| daily loss limit 2% | 0.130% | 24.7% | -7.1% | no (costs 13%) |
+| **daily loss limit 3%** | **0.153%** | **26.9%** | **-7.1%** | **yes** |
+| daily loss limit 5% | 0.144% | 29.0% | -7.0% | no |
+| drawdown scaling 10%-30% to 0.25x | 0.125% | 25.1% | -10.6% | no (costs 16%) |
+| **drawdown scaling 15%-35% to 0.5x** | **0.145%** | **27.0%** | -10.6% | **yes** |
+| drawdown scaling on a 180-day peak | 0.133% | 25.1% | -10.6% | no (costs 11%) |
+| kill switch at 40% | 0.149% | 27.8% | -10.6% | always on |
 
-Risk overlay: defaults are kept (10%/48h circuit breaker, -15% campaign stop).
-The overlay is roughly neutral for breakout_dual on DEV (0.0401 vs 0.0381),
-and it bounds the worst case of a single unattended 30-day run.
+**Locking in the day at +2% is the most damaging rule tested.** It cuts
+compound growth by 56% to 78% and makes the drawdown worse. The strategy's
+profit comes from a minority of large days; capping them keeps every loss
+and pays to re-enter the next morning. The 2% target is therefore
+**measured, not enforced**: the bot reports how often the day ends at or
+above +2% and never closes winners to "bank" it. The lock stays in the code
+as an option, off by default.
 
-## Honest expectations from 2018-2024
+## 4. Risk level (DEV, full engine, selected stops and governor)
 
-* The edge over buy-and-hold is modest: about 1.5-2.5 standard errors
-  depending on the test, before any correction for the breadth of the search.
-* A single 30-day run is roughly a coin flip to finish positive. The strategy
-  is flat (in USDT) 50-65% of the time, so many campaigns end at exactly 0.
-  The positive expectation comes from catching a few large trend months while
-  keeping losses small.
+| Daily volatility target | Compound per day | CAGR | Max drawdown | Days >= +2% | Worst day | P(50% drawdown within a year) |
+|---:|---:|---:|---:|---:|---:|---:|
+| 0.5% | 0.040% | 16% | 7.9% | 0.5% | -2.4% | 0.0% |
+| 1.0% | 0.076% | 32% | 15.4% | 2.9% | -3.5% | 0.0% |
+| 1.5% | 0.117% | 53% | 21.5% | 7.7% | -5.3% | 0.0% |
+| 2.0% | 0.148% | 71% | 26.4% | 12.9% | -7.0% | 0.1% |
+| 2.5% | 0.160% | 79% | 28.8% | 17.2% | -8.4% | 0.8% |
+| **3.0%** | **0.192%** | **101%** | **32.6%** | **19.7%** | **-10.3%** | **2.0%** |
+| 4.0% | 0.182% | 94% | 37.5% | 22.3% | -13.8% | 8.3% |
+| 5.0% | kill switch fired | | 40.1% | | -18.0% | |
+| 6.0% to 20% | kill switch fired, earlier each time | | 40%-59% | | -21% to -40% | |
+
+Compound growth peaks near 0.19% a day at a 3% target and falls beyond it;
+from 5% the account hits the 40% kill switch. In-sample, with every choice
+made on this same data, the best the risk dial can do is about a tenth of
+the 2% a day in the brief.
+
+By the rule (highest level with drawdown <= 35%, P(50% drawdown) <= 5%, no
+kill or liquidation) the selected level is **3.0%**.
+
+### Amendment 2 (made here, before HOLDOUT): the default is half of that
+
+The rule picks the level on in-sample data, and VALID already showed the
+in-sample edge shrinking by a third to a half. At a true Sharpe ratio near
+1 a 3% target would be expected to reach the 40% kill switch within about
+two years. The shipped default is therefore **1.5%**, half the
+rule-selected level (the usual half-Kelly haircut for an estimated edge).
+3.0% ships as the "aggressive" preset, labelled as the protocol maximum.
+Both are reported on HOLDOUT, with the whole ladder.
+
+## 5. The frozen configuration
+
+Strategy: 20 most liquid crypto perpetuals (re-ranked every Monday); trend
+score = mean of clip(z, -1, 1) over 2, 4, 8, 16 and 32-day returns measured
+in units of their own volatility; plus a cross-sectional rank of the 14-day
+return at equal weight; shorts at half size; inverse-volatility weights
+scaled to the portfolio volatility target (correlation 0.7, one symbol at
+most half the risk); weights averaged over 12 hours; stops at 4 daily
+sigmas (3% to 25% of price).
+
+Engine: fee 0.05% and slippage 0.03% a side; 25% no-trade band; minimum
+order 5 USDT, minimum position 10 USDT; gross exposure cap 3.0x, single
+weight cap 0.6x; daily loss limit 3%; drawdown scaling from 15% (1.0x) to
+35% (0.5x); kill switch at 40%; 2% daily target measured only.
+
+DEV with this configuration (10,000 USDT):
+
+| | Default (1.5%) | Aggressive (3.0%) |
+|---|---:|---:|
+| Compound per day | 0.117% | 0.191% |
+| CAGR | 53% | 101% |
+| Sharpe | 1.73 | 1.65 |
+| Max drawdown | 21.5% | 32.6% |
+| Days at or above +2% | 7.7% | 19.8% |
+| Worst day | -5.3% | -10.3% |
+| VALID year alone, compound per day | 0.054% | 0.073% |
+| Doubled costs, compound per day | 0.090% | 0.125% |
+| From 100 USDT, compound per day | 0.157% | 0.209% |
+| By year 2020 (Apr-Dec) / 21 / 22 / 23 / 24 | +86% / +57% / +13% / +89% / +23% | +196% / +103% / +22% / +169% / +39% |
+
+A 100 USDT account holds fewer, larger positions (exchange minimums), so
+its path differs from a large account's; it was luckier in this sample, not
+better by design.
+
+Spot-only alternative (long or flat, no leverage, 0.10% fee): 0.072% a day
+on DEV at the 1.5% target, 28% drawdown, and a losing 2022 (-24%). Higher
+targets hit the kill switch in 2022. It ships as `config/spot.toml` for
+accounts that cannot trade derivatives.
+
+## 6. What will be run on HOLDOUT (2025-01-01 to 2026-10-31), once
+
+Primary result: the frozen default from 10,000 USDT. Also reported, all
+declared here: the same from 100 USDT; the aggressive preset; doubled
+costs; governor off; the +2% profit lock switched on; the risk ladder
+(0.5% to 8%); T0 and X0 alone (attribution only); the spot preset; BTC
+buy-and-hold for context; bootstrap one-year outcomes. Nothing is changed
+after this run.
