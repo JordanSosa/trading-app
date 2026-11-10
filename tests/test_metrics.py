@@ -41,8 +41,9 @@ def test_drawdown_and_streaks():
 
 
 def test_wipe_out_is_flagged():
-    st = daily_stats(np.array([0.01, -1.0, 0.01]))
+    st = daily_stats(np.array([0.01, -1.0, 0.0, 0.0]))
     assert st["wiped_out"] and st["cagr"] == -1.0
+    assert st["compound_daily"] == -1.0 and st["total_return"] == -1.0 and st["max_drawdown"] == 1.0
 
 
 def test_calendar_aggregation_assigns_a_day_to_the_date_it_ended():

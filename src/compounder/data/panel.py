@@ -121,11 +121,18 @@ def build_panel(interval_ms: int, klines: dict[str, np.ndarray], funding: dict[s
         out["taker_quote"][pos, j] = a[ok, 8]
         if funding and sym in funding and len(funding[sym]):
             f = funding[sym]
-            # Settlement at f is booked on the bar that closes at f, i.e. opens at f - interval.
-            fpos = ((f[:, 0].astype("int64") - interval_ms - lo) // interval_ms).astype("int64")
-            aligned = (f[:, 0].astype("int64") % interval_ms) == 0
-            fok = (fpos >= 0) & (fpos < t) & aligned & np.isfinite(f[:, 1])
-            np.add.at(out["funding"][:, j], fpos[fok], f[fok, 1])
+            ft = f[:, 0].astype("int64")
+            # Settlements happen on the bar grid; tolerate a stamp up to two minutes either side.
+            snapped = (ft + interval_ms // 2) // interval_ms * interval_ms
+            near = np.abs(ft - snapped) <= 120_000
+            # One settlement per instant: if a row is repeated (month boundaries), the last one wins.
+            _, last = np.unique(snapped[::-1], return_index=True)
+            keep = np.zeros(len(ft), dtype=bool)
+            keep[len(ft) - 1 - last] = True
+            # A settlement at time f is booked on the bar that closes at f, i.e. opens at f - interval.
+            fpos = ((snapped - interval_ms - lo) // interval_ms).astype("int64")
+            fok = keep & near & (fpos >= 0) & (fpos < t) & np.isfinite(f[:, 1])
+            out["funding"][fpos[fok], j] = f[fok, 1]
     return Panel(interval_ms=interval_ms, times=times, symbols=symbols, rank=np.zeros((t, n), dtype="int16"), **out)
 
 

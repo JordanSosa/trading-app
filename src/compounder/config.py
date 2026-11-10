@@ -76,6 +76,7 @@ class RiskConfig:
     max_weight: float = 0.6
     rebalance_band: float = 0.25
     stop_cooldown_bars: int = 0
+    stale_bars: int = 48             # settle a position whose market has printed no bar for this many hours
     daily_target: float = 0.02       # the 2% a day target, measured on every completed day
     target_mode: str = "off"         # "off": measure only; "flatten" / "trail": close winners at the target
     trail_giveback: float = 0.5
@@ -141,7 +142,7 @@ class Config:
         return EngineParams(
             interval_ms=self.run.interval_ms, fee_rate=c.fee_rate, slippage=c.slippage_bps / 1e4,
             stop_slippage=c.stop_slippage_bps / 1e4, stop_overshoot=c.stop_overshoot,
-            stop_cooldown_bars=r.stop_cooldown_bars,
+            stop_cooldown_bars=r.stop_cooldown_bars, stale_bars=r.stale_bars,
             min_notional=c.min_notional, min_position_mult=c.min_position_mult, allow_short=r.allow_short,
             maint_margin=c.maint_margin, liquidation_fee=c.liquidation_fee, max_gross=r.max_gross,
             max_weight=r.max_weight, rebalance_band=r.rebalance_band,

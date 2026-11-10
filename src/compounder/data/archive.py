@@ -34,6 +34,12 @@ log = logging.getLogger(__name__)
 S3_ENDPOINT = "https://s3-ap-northeast-1.amazonaws.com/data.binance.vision"
 ARCHIVE = "https://data.binance.vision"
 FUTURES_KLINES = "data/futures/um/monthly/klines"
+FUTURES_KLINES_DAILY = "data/futures/um/daily/klines"
+SPOT_KLINES_DAILY = "data/spot/daily/klines"
+# Perpetuals quoted per 1,000 or 1,000,000 units of a spot asset.
+_SPOT_MULTIPLIERS = (("1000000", 1e6), ("1M", 1e6), ("1000", 1e3))
+DAY_MS = 86_400_000
+MAX_PATCH_DAYS = 120
 FUTURES_FUNDING = "data/futures/um/monthly/fundingRate"
 MAX_MEMBER_BYTES = 256 * 1024 * 1024
 _NS = {"s3": "http://s3.amazonaws.com/doc/2006-03-01/"}
@@ -102,19 +108,24 @@ def list_objects(http: HttpClient, prefix: str) -> list[ArchiveObject]:
     return out
 
 
-def fetch_verified(http: HttpClient, obj: ArchiveObject, cache_dir: Path) -> bytes:
+def fetch_verified(http: HttpClient, obj: ArchiveObject, cache_dir: Path, missing_ok: bool = False) -> bytes | None:
     """Return the object's bytes, downloading and verifying it if not cached.
 
     A cached file is accepted when its MD5 (or recorded SHA-256) still matches.
+    An object requested by name rather than from a listing has ``size < 0`` and
+    no ETag; it is verified against its published SHA-256. With ``missing_ok``
+    a file that does not exist returns None instead of raising.
     """
     dest = cache_dir / obj.key
-    if dest.exists() and dest.stat().st_size == obj.size:
+    if dest.exists() and (obj.size < 0 or dest.stat().st_size == obj.size):
         blob = dest.read_bytes()
         if _matches(http, obj, blob, dest):
             return blob
         log.warning("cached archive %s failed re-verification; downloading again", obj.name)
     blob = http.get_bytes(f"{ARCHIVE}/{obj.key}")
     if blob is None:
+        if missing_ok:
+            return None
         raise ArchiveError(f"archive object vanished: {obj.key}")
     if not _matches(http, obj, blob, dest, allow_remote=True):
         raise ArchiveError(f"integrity check failed for {obj.key}")
@@ -231,9 +242,126 @@ def month_of(name: str) -> str:
     return m.group(1)
 
 
+def _dedupe(arr: np.ndarray) -> np.ndarray:
+    """Sort by open time; on duplicates the later row wins."""
+    arr = arr[np.argsort(arr[:, 0], kind="stable")]
+    keep = np.ones(len(arr), dtype=bool)
+    keep[:-1] = arr[1:, 0] != arr[:-1, 0]
+    return arr[keep]
+
+
+def missing_days(arr: np.ndarray, interval_ms: int) -> list[str]:
+    """UTC dates ('YYYY-MM-DD') with at least one bar missing between the first and last row."""
+    if len(arr) < 2:
+        return []
+    t = arr[:, 0].astype("int64")
+    expected = np.arange(t[0], t[-1] + interval_ms, interval_ms, dtype="int64")
+    miss = np.setdiff1d(expected, t, assume_unique=False)
+    return [str(np.datetime64(int(d) * DAY_MS, "ms"))[:10] for d in np.unique(miss // DAY_MS)]
+
+
+def patch_gaps(symbol: str, interval: str, interval_ms: int, cache_dir: Path, arr: np.ndarray) -> np.ndarray:
+    """Fill holes in the monthly archives from the per-day archives.
+
+    Binance's monthly files have holes that its daily files do not (three days
+    in February 2022 for most altcoins, for example). A day that is missing
+    from both stays missing: the market really was closed.
+    """
+    days = missing_days(arr, interval_ms)
+    if not days:
+        return arr
+    if len(days) > MAX_PATCH_DAYS:
+        log.warning("%s: %d days with missing bars; patching the %d most recent", symbol, len(days), MAX_PATCH_DAYS)
+        days = days[-MAX_PATCH_DAYS:]
+    http = _thread_http()
+    parts = [arr]
+    for day in days:
+        obj = ArchiveObject(f"{FUTURES_KLINES_DAILY}/{symbol}/{interval}/{symbol}-{interval}-{day}.zip", -1, "")
+        try:
+            blob = fetch_verified(http, obj, cache_dir, missing_ok=True)
+            if blob is not None:
+                parts.append(parse_klines(blob, interval_ms))
+        except (HttpError, ArchiveError, zipfile.BadZipFile, ValueError) as exc:
+            log.warning("%s: could not patch %s: %s", symbol, day, exc)
+    if len(parts) == 1:
+        return arr
+    out = _dedupe(np.concatenate(parts))
+    # Never extend the series: a patch only fills the inside of what the monthly files span.
+    return out[(out[:, 0] >= arr[0, 0]) & (out[:, 0] <= arr[-1, 0])]
+
+
+def spot_counterpart(symbol: str) -> tuple[str, float]:
+    """The spot pair behind a perpetual and the price multiple between them.
+
+    '1000PEPEUSDT' -> ('PEPEUSDT', 1000.0); 'BTCUSDT' -> ('BTCUSDT', 1.0).
+    """
+    base = symbol[:-4]
+    for prefix, mult in _SPOT_MULTIPLIERS:
+        if base.startswith(prefix) and len(base) > len(prefix):
+            return base[len(prefix):] + "USDT", mult
+    return symbol, 1.0
+
+
+def patch_from_spot(symbol: str, interval: str, interval_ms: int, cache_dir: Path, arr: np.ndarray,
+                    days: set[str]) -> tuple[np.ndarray, int]:
+    """Fill a market-wide hole in the futures archive with the exchange's own spot candles.
+
+    Only for ``days`` on which the futures archive has no data for any symbol
+    (a publishing gap, not a trading halt: the spot archive has the day). The
+    spot bars are rescaled so the first one opens where the perpetual last
+    closed, which absorbs the basis and any 1000x quoting; a ratio more than
+    2% away from the expected multiple is refused. Volumes are set to the
+    perpetual's own average over the previous 24 bars. Returns the patched
+    series and the number of bars filled.
+    """
+    todo = [d for d in missing_days(arr, interval_ms) if d in days]
+    if not todo:
+        return arr, 0
+    spot, mult = spot_counterpart(symbol)
+    http = _thread_http()
+    filled = 0
+    for day in todo:
+        obj = ArchiveObject(f"{SPOT_KLINES_DAILY}/{spot}/{interval}/{spot}-{interval}-{day}.zip", -1, "")
+        try:
+            blob = fetch_verified(http, obj, cache_dir, missing_ok=True)
+        except (HttpError, ArchiveError) as exc:
+            log.warning("%s: could not fetch spot candles for %s: %s", symbol, day, exc)
+            continue
+        if blob is None:
+            continue
+        try:
+            rows = parse_klines(blob, interval_ms)
+        except (ArchiveError, zipfile.BadZipFile, ValueError) as exc:
+            log.warning("%s: unreadable spot candles for %s: %s", symbol, day, exc)
+            continue
+        rows = rows[~np.isin(rows[:, 0], arr[:, 0]) & (rows[:, 0] > arr[0, 0]) & (rows[:, 0] < arr[-1, 0])]
+        if not len(rows):
+            continue
+        prev = arr[arr[:, 0] < rows[0, 0]]
+        if not len(prev) or rows[0, 0] - prev[-1, 0] != interval_ms or rows[0, 1] <= 0:
+            continue                                     # nothing adjacent to splice onto
+        scale = prev[-1, 4] / rows[0, 1]
+        if abs(scale / mult - 1.0) > 0.02:
+            log.warning("%s: spot/perpetual ratio %.6g is not the expected %.0f; %s left unfilled",
+                        symbol, scale, mult, day)
+            continue
+        rows = rows.copy()
+        rows[:, 1:5] *= scale
+        rows[:, 6] = prev[-24:, 6].mean()
+        rows[:, 8] = prev[-24:, 8].mean()
+        rows[:, 5] = rows[:, 6] / rows[:, 4]
+        rows[:, 7] = 0.0
+        arr = _dedupe(np.concatenate([arr, rows]))
+        filled += len(rows)
+    return arr, filled
+
+
 def download_klines(symbol: str, interval: str, interval_ms: int, cache_dir: Path,
-                    start_month: str = "2019-01", end_month: str = "9999-12") -> np.ndarray:
-    """All monthly kline archives for one perp symbol, concatenated (may be empty)."""
+                    start_month: str = "2019-01", end_month: str = "9999-12", patch: bool = False) -> np.ndarray:
+    """All monthly kline archives for one perp symbol, concatenated (may be empty).
+
+    With ``patch`` the holes inside the series are filled from the daily archives.
+    """
     http = _thread_http()
     objs = [o for o in list_objects(http, f"{FUTURES_KLINES}/{symbol}/{interval}/") if o.key.endswith(".zip")]
     parts = []
@@ -246,11 +374,8 @@ def download_klines(symbol: str, interval: str, interval_ms: int, cache_dir: Pat
             raise ArchiveError(f"{o.key}: {exc}") from exc
     if not parts:
         return np.empty((0, len(KLINE_FIELDS)))
-    arr = np.concatenate(parts)
-    arr = arr[np.argsort(arr[:, 0], kind="stable")]
-    keep = np.ones(len(arr), dtype=bool)
-    keep[:-1] = arr[1:, 0] != arr[:-1, 0]
-    return arr[keep]
+    arr = _dedupe(np.concatenate(parts))
+    return patch_gaps(symbol, interval, interval_ms, cache_dir, arr) if patch else arr
 
 
 def download_funding(symbol: str, cache_dir: Path, start_month: str = "2019-01",

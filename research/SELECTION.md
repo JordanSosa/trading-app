@@ -150,3 +150,91 @@ costs; governor off; the +2% profit lock switched on; the risk ladder
 (0.5% to 8%); T0 and X0 alone (attribution only); the spot preset; BTC
 buy-and-hold for context; bootstrap one-year outcomes. Nothing is changed
 after this run.
+
+## Amendment 3 (independent audit, made before HOLDOUT)
+
+Before the holdout was evaluated, the engine, strategy, backtest and data
+code were audited independently, with instructions to find anything that
+would make the results wrong or optimistic.
+
+**What the audit confirmed as correct.** No look-ahead: with every field
+replaced from bar k onward (prices, volume, funding, ranks) on 36-symbol
+synthetic panels, weights, stops, ranks, the engine's state, its equity
+curve, trade list and day ledger before k were unchanged bit for bit, for
+the production parameters and two variants. No edge on noise: 600
+driftless panels gave +0.6% before costs (t = 0.8) and -2.8% after. The day
+ledger compounds exactly to final equity. Fees are charged on every fill,
+funding has the right sign and timing, stop fills are never better than
+their trigger.
+
+**The one confirmed defect: holes in the data.** Binance's monthly archive
+files are missing bars that its daily files have (2022-02-26 to 28 and
+2022-04-01 to 02 for about 47 symbols, whole months for a few symbols), and
+its futures archive has no data at all for 2026-10-28, a day on which its
+spot archive shows normal trading. A position in a symbol without bars is
+frozen: it cannot be traded, its stop is not tested, and three days of
+profit and loss arrive in one bar. In the first DEV run this booked +2.35%
+of equity on a single bar in March 2022.
+
+Repairs, all made without looking at any result after 2024:
+
+* Holes inside a symbol's history are filled from the daily archive files
+  (`archive.patch_gaps`). Missing bars inside listing spans fell from 16,130
+  to 2,834; gaps of a day or more from 452 to 111.
+* The market-wide hole on 2026-10-28 is filled from the exchange's own spot
+  candles, rescaled so the first one opens where the perpetual last closed
+  (`archive.patch_from_spot`: 231 symbols, 5,544 bars). It applies only to
+  days on which the futures archive is empty for every symbol, so a genuine
+  halt of one market stays a halt. 110 perpetuals without a matching spot
+  market keep the hole; two of them were in the top 20 that day.
+* What remains are real halts and delistings.
+
+**Engine changes from the audit's other points.**
+
+* Margin is tested at the moment stops trigger, before they fill: an
+  account whose equity is already below maintenance there is liquidated
+  instead of being stopped out. Stop fills that leave less than nothing are
+  a wipe-out even with no position left. (Matters only at the top of the
+  risk ladder.)
+* A position in a market that has printed no bar for 48 hours is settled at
+  its last price, with costs, as a delisting would settle it. Previously it
+  was held forever at a stale mark.
+* A day whose final return is beyond the loss limit or the target is
+  flagged as such even when the breach came in its last hour.
+* A wiped-out account reports -100%, not the average of what came before.
+* Funding settlements are snapped to the bar grid and de-duplicated (no
+  row in the data was affected).
+
+**Known and left as they are.** The daily loss limit is checked at hourly
+closes within a UTC day, so a loss in the day's final hour is recorded but
+cannot be prevented. The fast linear backtest used for signal research
+counts the return across a remaining data gap as zero. A ticker that is
+redenominated or relisted under the same name is not detected (BNX in
+February 2023 is the one case in the data; it ranked about 80th, outside
+the universe).
+
+**Everything was re-run on the repaired data with the corrected engine.**
+Every decision is unchanged:
+
+| | First run | Re-run |
+|---|---:|---:|
+| VALID Sharpe, T0 / X0 / B0 | 0.89 / 1.65 / 1.26 | 0.89 / 1.65 / 1.26 |
+| DEV Sharpe, T0 / X0 / B0 | 1.61 / 1.86 / 1.84 | 1.61 / 1.91 / 1.86 |
+| Stops: none / 2 / 3 / 4 sigma, compound per day | 0.166 / 0.134 / 0.149 / 0.152% | 0.166 / 0.134 / 0.149 / 0.152% |
+| +2% lock, flatten / trail | 0.065 / 0.033% | 0.064 / 0.033% |
+| Daily loss limit 2% / 3% / 5% | 0.130 / 0.153 / 0.144% | 0.131 / 0.155 / 0.146% |
+| Drawdown scaling 15%-35% | 0.145% | 0.145% |
+| Risk ladder 1.5% / 2% / 3% / 4% | 0.117 / 0.148 / 0.192 / 0.182% | 0.118 / 0.149 / 0.193 / 0.183% |
+| Highest level passing the survival rule | 3.0% | 3.0% |
+| Frozen default: compound per day, max drawdown | 0.117%, 21.5% | 0.118%, 21.5% |
+| Frozen default, 2022 | +12.9% | +14.7% |
+
+On the raw DEV Sharpe ratio the cross-sectional sleeve alone is now 0.05
+ahead of the blend (1.91 against 1.86). With the full engine at the frozen
+settings the blend compounds faster than either member (0.118% a day
+against 0.096% for trend and 0.102% for cross-sectional momentum) with the
+smallest drawdown (21.5% against 21.6% and 32.9%), so the choice of B0
+stands. All JSON files in `research/results/` are from the re-run;
+`frozen_dev_checks.json` and `spot_dev.json` from the first run are
+replaced by `dev.json`, which `scripts/holdout.py dev` writes in the same
+format as the holdout report.

@@ -69,7 +69,9 @@ def collect(eng: Engine) -> BacktestResult:
     if eng.daily:
         d = np.asarray([(a, b, c) for a, b, c, _ in eng.daily], dtype="float64")
         day_end = d[:, 0].astype("int64")
-        rets = d[:, 2] / d[:, 1] - 1.0
+        # After a wipe-out the account sits at zero: those days return nothing, not 0/0.
+        with np.errstate(invalid="ignore", divide="ignore"):
+            rets = np.where(d[:, 1] > 0, d[:, 2] / np.where(d[:, 1] > 0, d[:, 1], 1.0) - 1.0, 0.0)
         flags = [x[3] for x in eng.daily]
     else:
         day_end, rets, flags = np.empty(0, dtype="int64"), np.empty(0), []
@@ -81,6 +83,7 @@ def collect(eng: Engine) -> BacktestResult:
         eq = gross = net = mult = np.empty(0)
     m = daily_stats(rets, eng.params.daily_target if eng.params.daily_target is not None else 0.02)
     days = max(1, len(rets))
+    m["wiped_out"] = bool(m.get("wiped_out")) or s.last_equity <= 0
     m.update({
         "initial_equity": s.initial_equity,
         "final_equity": s.last_equity,

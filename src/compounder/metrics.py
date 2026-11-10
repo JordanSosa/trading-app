@@ -25,8 +25,9 @@ def daily_stats(daily_returns: np.ndarray, target: float | None = 0.02) -> dict[
     n = int(r.size)
     if n == 0:
         return {"days": 0}
-    equity = np.concatenate([[1.0], np.cumprod(1.0 + r)])
-    wiped = bool((r <= -1.0).any()) or equity[-1] <= 0
+    equity = np.concatenate([[1.0], np.cumprod(1.0 + np.maximum(r, -1.0))])
+    # A day that loses everything ends the account: nothing compounds back from zero.
+    wiped = bool((r <= -1.0 + 1e-12).any()) or equity[-1] <= 0
     log_growth = float(np.log1p(np.maximum(r, -0.999999)).mean())
     mu, sd = float(r.mean()), float(r.std(ddof=1)) if n > 1 else 0.0
     neg = r[r < 0]
@@ -57,6 +58,9 @@ def daily_stats(daily_returns: np.ndarray, target: float | None = 0.02) -> dict[
         "p95_day": float(np.quantile(r, 0.95)),
         "wiped_out": bool(wiped),
     }
+    if wiped:
+        out.update({"total_return": -1.0, "cagr": -1.0, "compound_daily": -1.0, "max_drawdown": 1.0,
+                    "calmar": -1.0})
     if target is not None:
         out["target"] = target
         out["pct_days_at_target"] = float((r >= target).mean())

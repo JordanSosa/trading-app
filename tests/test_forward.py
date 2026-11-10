@@ -244,13 +244,20 @@ def test_position_in_a_dead_market_is_closed_with_an_alert(tmp_path):
     for arr in (w.open, w.high, w.low, w.close):
         arr[start + 40:, j] = np.nan
     events = []
-    for k in range(40, 70):
+    for k in range(40, 80):
+        src.now_ms = int(w.times[start + k]) + 60_000
+        res = tick(cfg, store, md, now_ms=src.now_ms)
+        assert res.ok
+        events += res.events
+    assert store.load()["engine"]["qty"][victim] != 0       # a halt of under two days: the position is kept
+    for k in range(80, 100):
         src.now_ms = int(w.times[start + k]) + 60_000
         res = tick(cfg, store, md, now_ms=src.now_ms)
         assert res.ok
         events += res.events
     assert store.load()["engine"]["qty"][victim] in (0, 0.0, None)
-    assert any("no bars for" in e["message"] and victim in e["message"] for e in events)
+    assert any("no bar for" in e["message"] and victim in e["message"] for e in events)
+    assert any(t["reason"] == "market closed" and t["symbol"] == victim for t in store.read_csv("trades.csv"))
 
 
 def test_reports_and_notifications_are_produced(tmp_path):

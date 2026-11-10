@@ -334,3 +334,77 @@ def test_live_mode_engine_does_not_simulate_what_the_exchange_does():
     assert st.last_equity == pytest.approx(500.0 + 5.0 * 60.0)
     assert st.pending is not None and st.pending[0] == pytest.approx(0.5)   # the next decision is ready
     assert eng.plan(np.array([60.0])) == [(0, pytest.approx(0.5 * 800.0 - 300.0))]
+
+
+def test_account_is_liquidated_before_stops_that_sit_beyond_the_margin_line():
+    # 6x long with a 15% stop: equity reaches maintenance margin at about -14.5%, before the stop.
+    px = np.array([100.0, 100.0, 100.0, 84.0, 84.0])
+    p = make_panel(px)
+    params = free_params(max_gross=10.0, max_weight=10.0)
+    res = run_backtest(p, 6.0 * np.ones((5, 1)), params, 1000.0, stop_frac=0.15)
+    assert res.state.liquidated and res.state.stop_count == 0
+    assert res.state.last_equity < 60.0                      # essentially everything is gone
+
+
+def test_stops_inside_the_margin_line_fill_normally():
+    # 3x long with a 10% stop: the stop triggers long before maintenance margin is at risk.
+    px = np.array([100.0, 100.0, 100.0, 80.0, 80.0])
+    p = make_panel(px)
+    res = run_backtest(p, 3.0 * np.ones((5, 1)), free_params(max_gross=10.0, max_weight=10.0), 1000.0,
+                       stop_frac=0.10)
+    assert not res.state.liquidated and res.state.stop_count == 1
+    assert res.state.last_equity == pytest.approx(1000.0 - 3000.0 * 0.10)
+
+
+def test_stop_fills_that_leave_less_than_nothing_are_a_wipe_out():
+    # The bar gaps far through the stop: the fill costs more than the account holds.
+    close = np.full((80, 1), 100.0)
+    close[3:] = 50.0
+    p = make_panel(close)
+    p.open[3, 0] = 100.0
+    p.high[3, 0] = 100.0
+    p.low[3, 0] = 10.0
+    params = free_params(max_gross=10.0, max_weight=10.0, stop_overshoot=1.0)
+    res = run_backtest(p, 2.0 * np.ones((80, 1)), params, 1000.0, stop_frac=0.10)
+    assert res.state.liquidated and res.state.killed
+    assert res.state.last_equity == pytest.approx(0.0)
+    assert res.metrics["wiped_out"] and res.metrics["compound_daily"] == -1.0
+    assert res.metrics["total_return"] == -1.0 and np.isfinite(res.daily_returns).all()
+
+
+def test_delisted_market_is_settled_at_the_last_price():
+    px = random_walk(120, 2, seed=12)
+    p = make_panel(px.copy())
+    for arr in (p.open, p.high, p.low, p.close):
+        arr[40:, 1] = np.nan                                  # symbol 1 stops trading for good
+    params = free_params(stale_bars=48, fee_rate=0.001)
+    res = run_backtest(p, np.full((120, 2), 0.5), params, 1000.0)
+    closed = [t for t in res.trades if t["reason"] == "market closed"]
+    assert len(closed) == 1 and closed[0]["symbol"] == p.symbols[1]
+    assert closed[0]["price"] == pytest.approx(px[39, 1])
+    assert closed[0]["fee"] > 0 and res.state.qty[1] == 0.0
+    assert any("settled at the last price" in e["message"] for e in res.events)
+    # A halt shorter than the limit is waited out.
+    q = make_panel(px.copy())
+    for arr in (q.open, q.high, q.low, q.close):
+        arr[40:70, 1] = np.nan
+    res2 = run_backtest(q, np.full((120, 2), 0.5), params, 1000.0)
+    assert not [t for t in res2.trades if t["reason"] == "market closed"]
+
+
+def test_a_day_that_ends_beyond_the_loss_limit_is_flagged():
+    # The whole loss arrives in the last hour of the day: the limit cannot act, the ledger still shows it.
+    px = np.full(72, 100.0)
+    px[47:] = 94.0                                            # bar 47 closes at the end of day two
+    p = make_panel(px)
+    res = run_backtest(p, np.ones((72, 1)), free_params(daily_loss_limit=0.03), 1000.0)
+    assert res.daily_returns[1] == pytest.approx(-0.06)
+    assert "L" in res.day_flags[1] and res.state.days_loss_limit == 1
+
+
+def test_state_written_before_a_field_existed_still_loads():
+    st = EngineState.fresh(("AUSDT", "BUSDT"), 100.0)
+    d = st.to_dict()
+    del d["missing_bars"], d["blocked_until"]
+    back = EngineState.from_dict(d)
+    assert back.missing_bars.tolist() == [0.0, 0.0] and np.isnan(back.blocked_until).all()

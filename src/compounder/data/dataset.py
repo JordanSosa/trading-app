@@ -77,16 +77,27 @@ def build_hourly(data_dir: str | Path = "data", top: int = 30, end_month: str = 
     symbols = [s for s, e in zip(daily.symbols, ever) if e]
     log.info("%d symbols were ever in the top %d", len(symbols), top)
 
+    # Days missing for the most liquid contract are missing for every contract: holes in the
+    # futures archive itself, to be filled from spot candles.
+    btc = archive.download_klines("BTCUSDT", "1h", HOUR_MS, cache, end_month=end_month, patch=True)
+    market_holes = set(archive.missing_days(btc, HOUR_MS))
+    if market_holes:
+        log.warning("the futures archive has no data at all on %s; filling from spot candles", sorted(market_holes))
+
     def one(sym: str):
-        k = archive.download_klines(sym, "1h", HOUR_MS, cache, end_month=end_month)
+        k = archive.download_klines(sym, "1h", HOUR_MS, cache, end_month=end_month, patch=True)
+        n = 0
+        if market_holes and len(k):
+            k, n = archive.patch_from_spot(sym, "1h", HOUR_MS, cache, k, market_holes)
         f = archive.download_funding(sym, cache, end_month=end_month)
-        return sym, k, f
+        return sym, k, f, n
 
     t0 = time.time()
     res = archive.parallel_map(one, symbols, workers=workers, progress="hourly klines")
     log.info("downloaded hourly klines + funding for %d symbols in %.0fs", len(res), time.time() - t0)
     end_ms = None if end_month.startswith("9999") else month_end_ms(end_month)
-    panel = build_panel(HOUR_MS, {s: k for s, k, _ in res}, {s: f for s, _, f in res}, end_ms=end_ms)
+    spot_filled = {s: n for s, _, _, n in res if n}
+    panel = build_panel(HOUR_MS, {s: k for s, k, _, _ in res}, {s: f for s, _, f, _ in res}, end_ms=end_ms)
     # Every symbol that can rank in the top K is in this panel, so ranks 1..K computed
     # here equal the ranks over the whole exchange.
     rank = liquidity_rank(panel.times, panel.quote_volume, panel.close, HOUR_MS)
@@ -98,6 +109,11 @@ def build_hourly(data_dir: str | Path = "data", top: int = 30, end_month: str = 
         "source": "data.binance.vision USD-M perpetual monthly archives (MD5/SHA-256 verified)",
         "top": top, "end_month": end_month, "symbols": list(panel.symbols), "bars": panel.n_bars,
         "first_ms": int(panel.times[0]), "last_ms": int(panel.times[-1]),
+        "repairs": {"monthly_holes_filled_from": "daily futures archives",
+                    "market_wide_holes": sorted(market_holes),
+                    "market_wide_holes_filled_from": "spot daily archives, rescaled to the perpetual's last close",
+                    "bars_filled_from_spot": int(sum(spot_filled.values())),
+                    "symbols_filled_from_spot": len(spot_filled)},
     }
     (out.parent / "hourly.meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n")
     log.info("hourly panel: %d bars x %d symbols -> %s", panel.n_bars, panel.n_symbols, out)

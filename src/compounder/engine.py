@@ -46,6 +46,9 @@ class EngineParams:
     # left it. With a cooldown > 0 it also reopens after this many bars, so one
     # wick does not keep the account out of the rest of a trend.
     stop_cooldown_bars: int = 0
+    # A held market that has printed no bar for this many bars is treated as closed
+    # for good (delisted) and the position is settled at its last price. 0 disables.
+    stale_bars: int = 48
     # --- venue constraints -------------------------------------------------------
     min_notional: float = 5.0         # smallest order the venue accepts, in USDT
     min_position_mult: float = 2.0    # only open positions of at least this many min_notionals
@@ -88,6 +91,7 @@ class EngineState:
     blocked: np.ndarray               # +1/-1: side that was stopped out and may not be re-entered yet
     blocked_until: np.ndarray         # close time (ms) at which a cooldown releases the block (NaN = none)
     last_price: np.ndarray            # last known price per symbol (NaN before the first bar)
+    missing_bars: np.ndarray          # consecutive bars without data per symbol
     pending: np.ndarray | None = None       # weights to execute at the next open
     pending_stop: np.ndarray | None = None  # stop distance (fraction of price) for new positions
     pending_reason: str = ""
@@ -123,12 +127,12 @@ class EngineState:
         return cls(symbols=tuple(symbols), initial_equity=float(initial_equity), cash=float(initial_equity),
                    qty=np.zeros(n), entry_price=np.full(n, np.nan), stop_price=np.full(n, np.nan),
                    blocked=np.zeros(n), blocked_until=np.full(n, np.nan), last_price=np.full(n, np.nan),
-                   hwm=float(initial_equity),
+                   missing_bars=np.zeros(n), hwm=float(initial_equity),
                    peak_equity=float(initial_equity), day_start_equity=float(initial_equity),
                    day_peak_equity=float(initial_equity), last_equity=float(initial_equity))
 
     # ------------------------------------------------------------ serialisation
-    _ARRAYS = ("qty", "entry_price", "stop_price", "blocked", "blocked_until", "last_price")
+    _ARRAYS = ("qty", "entry_price", "stop_price", "blocked", "blocked_until", "last_price", "missing_bars")
     _OPT_ARRAYS = ("pending", "pending_stop")
 
     def to_dict(self) -> dict[str, Any]:
@@ -152,13 +156,14 @@ class EngineState:
         symbols = tuple(symbols) if symbols is not None else stored
         kw: dict[str, Any] = {}
         defaults = {"qty": 0.0, "entry_price": np.nan, "stop_price": np.nan, "blocked": 0.0,
-                    "blocked_until": np.nan, "last_price": np.nan, "pending": 0.0, "pending_stop": np.nan}
+                    "blocked_until": np.nan, "last_price": np.nan, "missing_bars": 0.0, "pending": 0.0,
+                    "pending_stop": np.nan}
         for k in cls._ARRAYS + cls._OPT_ARRAYS:
             raw = d.get(k)
             if raw is None:
-                if k in cls._ARRAYS:
+                if k in ("qty", "last_price"):
                     raise ValueError(f"engine state is missing {k}")
-                kw[k] = None
+                kw[k] = None if k in cls._OPT_ARRAYS else np.full(len(symbols), defaults[k])
                 continue
             if k == "qty":
                 lost = [s for s in stored if s not in symbols and abs(raw.get(s) or 0.0) > 0]
@@ -329,48 +334,57 @@ class Engine:
         close_ms = ts_ms + p.interval_ms
         have = np.isfinite(close) & (close > 0)
 
-        # 1) protective stops -------------------------------------------------
-        held = (s.qty != 0.0) & have & np.isfinite(s.stop_price) & self.simulate
-        if held.any():
-            long_hit = held & (s.qty > 0) & (low <= s.stop_price)
-            short_hit = held & (s.qty < 0) & (high >= s.stop_price)
-            for j in np.nonzero(long_hit | short_hit)[0]:
-                stop = float(s.stop_price[j])
-                if s.qty[j] > 0:
-                    ref = min(float(open_px[j]), stop)
-                    fill = (ref - p.stop_overshoot * max(0.0, ref - float(low[j]))) * (1.0 - p.stop_slippage)
-                    side = 1.0
-                else:
-                    ref = max(float(open_px[j]), stop)
-                    fill = (ref + p.stop_overshoot * max(0.0, float(high[j]) - ref)) * (1.0 + p.stop_slippage)
-                    side = -1.0
-                self._book(close_ms - 1, j, -float(s.qty[j]), fill, "stop")
-                s.blocked[j] = side
-                s.blocked_until[j] = (close_ms + p.stop_cooldown_bars * p.interval_ms
-                                      if p.stop_cooldown_bars > 0 else np.nan)
-                s.stop_count += 1
-                if self.record:
-                    self._event(close_ms, "stop", f"{s.symbols[j]}: protective stop filled at {fill:.6g}",
-                                symbol=s.symbols[j])
-
-        # 2) liquidation check on worst-case intrabar equity ---------------------
-        held = s.qty != 0.0
-        if self.simulate and p.allow_short and held.any() and not s.liquidated:
+        # 1) protective stops, liquidation, dead markets -------------------------
+        if self.simulate:
+            s.missing_bars = np.where(have, 0.0, s.missing_bars + 1.0)
             lo = np.where(have, low, s.last_price)
             hi = np.where(have, high, s.last_price)
-            adverse = np.where(s.qty > 0, lo, hi)
-            worst = float(s.cash + (s.qty[held] * adverse[held]).sum())
-            gross_adv = float((np.abs(s.qty[held]) * adverse[held]).sum())
-            if worst <= p.maint_margin * gross_adv:
-                left = max(0.0, worst - p.liquidation_fee * gross_adv)
-                s.cash = left
-                s.qty[:] = 0.0
-                s.entry_price[:] = np.nan
-                s.stop_price[:] = np.nan
-                s.liquidated = True
-                s.killed = True
-                self._event(close_ms, "alert", f"LIQUIDATED: worst-case equity {worst:.2f} fell below maintenance "
-                            f"margin on {gross_adv:.2f} gross; {left:.2f} USDT left")
+            adverse = np.where(s.qty > 0, lo, hi)             # each position's worst price inside the bar
+            can_stop = (s.qty != 0.0) & have & np.isfinite(s.stop_price)
+            long_hit = can_stop & (s.qty > 0) & (low <= s.stop_price)
+            short_hit = can_stop & (s.qty < 0) & (high >= s.stop_price)
+            # Where each stop triggers: its level, or the open if the bar gapped through it.
+            trigger = np.where(long_hit, np.minimum(open_px, s.stop_price),
+                               np.where(short_hit, np.maximum(open_px, s.stop_price), adverse))
+            # 1a) Margin first: if equity is already below maintenance at the moment the stops
+            # trigger (every other position at its worst price), the exchange liquidates the
+            # account before a single stop can fill.
+            if p.allow_short and not s.liquidated:
+                self._margin_check(close_ms, trigger)
+            # 1b) Stop fills.
+            if not s.liquidated:
+                for j in np.nonzero(long_hit | short_hit)[0]:
+                    stop = float(s.stop_price[j])
+                    if s.qty[j] > 0:
+                        ref = min(float(open_px[j]), stop)
+                        fill = (ref - p.stop_overshoot * max(0.0, ref - float(low[j]))) * (1.0 - p.stop_slippage)
+                        side = 1.0
+                    else:
+                        ref = max(float(open_px[j]), stop)
+                        fill = (ref + p.stop_overshoot * max(0.0, float(high[j]) - ref)) * (1.0 + p.stop_slippage)
+                        side = -1.0
+                    self._book(close_ms - 1, j, -float(s.qty[j]), fill, "stop")
+                    s.blocked[j] = side
+                    s.blocked_until[j] = (close_ms + p.stop_cooldown_bars * p.interval_ms
+                                          if p.stop_cooldown_bars > 0 else np.nan)
+                    s.stop_count += 1
+                    if self.record:
+                        self._event(close_ms, "stop", f"{s.symbols[j]}: protective stop filled at {fill:.6g}",
+                                    symbol=s.symbols[j])
+            # 1c) Margin again on what is left, and bankruptcy: stop fills beyond their
+            # triggers can leave less than nothing even with no position open.
+            if not s.liquidated:
+                self._margin_check(close_ms, adverse, always=not p.allow_short)
+            # 1d) A market that has printed no bar for stale_bars is treated as closed for good
+            # (delisting): the position is settled at its last price.
+            if p.stale_bars > 0 and not s.liquidated:
+                dead = (s.qty != 0.0) & (s.missing_bars >= p.stale_bars) & np.isfinite(s.last_price)
+                for j in np.nonzero(dead)[0]:
+                    px = float(s.last_price[j])
+                    fill = px * (1.0 - p.slippage * (1.0 if s.qty[j] > 0 else -1.0))
+                    self._book(close_ms - 1, int(j), -float(s.qty[j]), fill, "market closed")
+                    self._event(close_ms, "alert", f"{s.symbols[j]}: no bar for {int(s.missing_bars[j])} hours; "
+                                f"position settled at the last price {px:.6g}", symbol=s.symbols[j])
 
         # 3) funding, mark to market, day roll-over ---------------------------
         s.last_price = np.where(have, close, s.last_price)
@@ -389,11 +403,16 @@ class Engine:
             s.day = day
             s.day_start_equity = s.day_peak_equity = equity if s.bars_processed > 1 else s.initial_equity
         elif day > s.day:
-            flags = ("T" if s.day_target_hit else "") + ("L" if s.day_stopped else "")
+            # The day that has just ended is judged on its final return too: its last
+            # bar closes here, after the governor's last look at that day.
+            final = equity / s.day_start_equity - 1.0 if s.day_start_equity > 0 else 0.0
+            hit = s.day_target_hit or (p.daily_target is not None and final >= p.daily_target)
+            lost = s.day_stopped or (p.daily_loss_limit is not None and final <= -p.daily_loss_limit)
+            flags = ("T" if hit else "") + ("L" if lost else "")
             self.daily.append((close_ms, s.day_start_equity, equity, flags))
             s.days_completed += 1
-            s.days_target_hit += int(s.day_target_hit)
-            s.days_loss_limit += int(s.day_stopped)
+            s.days_target_hit += int(hit)
+            s.days_loss_limit += int(lost)
             s.day = day
             s.day_start_equity = s.day_peak_equity = equity
             s.day_locked = s.day_target_hit = s.day_stopped = False
@@ -479,6 +498,31 @@ class Engine:
             gross_now = float(np.abs(pos_val).sum() / equity) if equity > 0 else 0.0
             net_now = float(pos_val.sum() / equity) if equity > 0 else 0.0
             self.equity_curve.append((close_ms, equity, gross_now, net_now, s.risk_mult))
+
+    def _margin_check(self, close_ms: int, prices: np.ndarray, always: bool = False) -> None:
+        """Liquidate the account if its equity at ``prices`` is below maintenance margin, or gone.
+
+        ``always`` restricts the test to bankruptcy (equity <= 0), for accounts
+        that cannot be leveraged.
+        """
+        s, p = self.state, self.params
+        held = s.qty != 0.0
+        equity = float(s.cash + (s.qty[held] * prices[held]).sum())
+        gross = float((np.abs(s.qty[held]) * prices[held]).sum())
+        need = 0.0 if always else p.maint_margin * gross
+        if equity > need and equity > 0.0:
+            return
+        if not held.any() and equity > 0.0:
+            return
+        left = max(0.0, equity - p.liquidation_fee * gross)
+        s.cash = left
+        s.qty[:] = 0.0
+        s.entry_price[:] = np.nan
+        s.stop_price[:] = np.nan
+        s.liquidated = True
+        s.killed = True
+        self._event(close_ms, "alert", f"LIQUIDATED: equity {equity:.2f} fell below the maintenance margin on "
+                    f"{gross:.2f} gross exposure; {left:.2f} USDT left")
 
     def _concentrate(self, w: np.ndarray, equity: float) -> np.ndarray:
         """Small accounts cannot hold many positions above the venue minimum.

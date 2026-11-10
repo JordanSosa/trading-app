@@ -61,3 +61,32 @@ after-cost VALID Sharpe is positive. B0 is used only if it beats its better
 member on DEV; otherwise the better member is used alone. The stop distance
 and the risk governor are chosen afterwards on DEV with the full engine, as
 the protocol states.
+
+## Note added with Amendment 3 (after the audit, before HOLDOUT)
+
+The figures above are from the first run. After the data repair and the
+engine fixes described in `SELECTION.md` (Amendment 3) every script was run
+again; the JSON files in `research/results/` hold the re-run. No conclusion
+changed. The same statements with the re-run figures:
+
+* Hourly re-targeting: -4.15 to +1.80 after costs, 1.74 to 2.83 before,
+  turnover up to 9.6x a day. Twelve-hour smoothing takes the 20-symbol
+  long/short trend from 1.16 to 1.65.
+* Smoothed trend, horizons of two days or more (27 configurations):
+  1.42-1.99. Horizons of 1-4 days: 0.77-1.34.
+* Cross-sectional momentum alone: 1.44-2.06 with 39-49% drawdowns. Added to
+  trend: 1.94-2.18 against 1.78 for trend alone; at doubled costs 1.67
+  against 1.46.
+* Carry: -0.58 to -0.09. Reversal: -2.53 to -1.36 without a trend filter,
+  -1.02 to +0.25 with one.
+* No-trade band 10/25/50%: 1.80/1.78/1.60. Correlation 0.5/0.7/0.9:
+  1.74/1.78/1.79. Volatility window 7/14/30 days: 1.76/1.78/1.59.
+  Conviction-weighted sizing: 1.44-1.64. Eight-hour cadence by starting
+  hour: 1.45-1.90, mean 1.69.
+* Placebos, now run on T0 itself (the line above was for the symmetric
+  long/short variant): as designed 1.78; 1 / 2 / 6 / 24 hours late
+  1.74 / 1.66 / 1.38 / 1.38; weeks shuffled 0.05.
+* Engine cross-check on T0 without governor or stops: Sharpe 1.74 against
+  1.78 for the linear backtest; +100%, +76%, +37% and +78% in the four
+  TRAIN years.
+* Frozen candidates on TRAIN: T0 1.78, X0 1.98, B0 1.99.

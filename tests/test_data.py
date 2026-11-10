@@ -191,3 +191,64 @@ def test_gate_candles_and_instruments():
     assert list(inst) == ["BTCUSDT"]
     arr = src.candles(inst["BTCUSDT"], 5)
     assert arr.shape == (5, 9) and arr[0, 0] == t0 * 1000 and arr[0, 6] == 500.0
+
+
+def test_missing_days_and_spot_counterparts():
+    t0 = 1_704_067_200_000
+    ts = np.array([t0 + i * 3_600_000 for i in range(72) if not 24 <= i < 30])
+    arr = np.column_stack([ts] + [np.ones(len(ts))] * 8)
+    assert archive.missing_days(arr, 3_600_000) == ["2024-01-02"]
+    assert archive.missing_days(arr[:10], 3_600_000) == []
+    assert archive.spot_counterpart("BTCUSDT") == ("BTCUSDT", 1.0)
+    assert archive.spot_counterpart("1000PEPEUSDT") == ("PEPEUSDT", 1000.0)
+    assert archive.spot_counterpart("1000000MOGUSDT") == ("MOGUSDT", 1e6)
+    assert archive.spot_counterpart("1MBABYDOGEUSDT") == ("BABYDOGEUSDT", 1e6)
+
+
+def _kline_zip(rows) -> bytes:
+    text = "".join(f"{int(t)},{o},{h},{l},{c},10,{int(t) + 3_599_999},{qv},5,4,{qv / 2},0\n" for t, o, h, l, c, qv in rows)
+    return zip_bytes("x.csv", text)
+
+
+def test_patch_gaps_fills_monthly_holes_from_daily_files(tmp_path, monkeypatch):
+    t0 = 1_704_067_200_000                                   # 2024-01-01
+    hours = [t0 + i * 3_600_000 for i in range(72)]
+    full = [(t, 100, 101, 99, 100, 1000.0) for t in hours]
+    monthly = np.array([[t, 100, 101, 99, 100, 10, 1000.0, 5, 500.0] for t in hours if not 24 <= (t - t0) // 3_600_000 < 48])
+    day2 = _kline_zip(full[24:48])
+    key = f"{archive.FUTURES_KLINES_DAILY}/XUSDT/1h/XUSDT-1h-2024-01-02.zip"
+    sha = hashlib.sha256(day2).hexdigest()
+    http = StubHttp({f"{archive.ARCHIVE}/{key}": day2, f"{archive.ARCHIVE}/{key}.CHECKSUM": f"{sha}  f.zip\n".encode()})
+    monkeypatch.setattr(archive, "_thread_http", lambda *a, **k: http)
+    out = archive.patch_gaps("XUSDT", "1h", 3_600_000, tmp_path, monthly)
+    assert len(out) == 72 and archive.missing_days(out, 3_600_000) == []
+    # A day that the daily archive does not have either stays missing.
+    http2 = StubHttp({})
+    monkeypatch.setattr(archive, "_thread_http", lambda *a, **k: http2)
+    assert len(archive.patch_gaps("YUSDT", "1h", 3_600_000, tmp_path, monthly)) == 48
+
+
+def test_patch_from_spot_rescales_and_refuses_a_mismatched_asset(tmp_path, monkeypatch):
+    t0 = 1_704_067_200_000
+    perp = np.array([[t0 + i * 3_600_000, 2000, 2010, 1990, 2000, 10, 5e6, 5, 2.5e6]
+                     for i in range(72) if not 24 <= i < 48], dtype="float64")
+    spot_rows = [(t0 + i * 3_600_000, 2.0, 2.1, 1.9, 2.05, 1000.0) for i in range(24, 48)]   # quoted per unit
+    blob = _kline_zip(spot_rows)
+
+    def serve(name):
+        key = f"{archive.SPOT_KLINES_DAILY}/{name}/1h/{name}-1h-2024-01-02.zip"
+        sha = hashlib.sha256(blob).hexdigest()
+        return {f"{archive.ARCHIVE}/{key}": blob, f"{archive.ARCHIVE}/{key}.CHECKSUM": f"{sha}  f.zip\n".encode()}
+
+    monkeypatch.setattr(archive, "_thread_http", lambda *a, **k: StubHttp(serve("PEPEUSDT")))
+    out, n = archive.patch_from_spot("1000PEPEUSDT", "1h", 3_600_000, tmp_path / "a", perp, {"2024-01-02"})
+    assert n == 24 and len(out) == 72
+    first = out[out[:, 0] == t0 + 24 * 3_600_000][0]
+    assert first[1] == pytest.approx(2000.0)                 # opens where the perpetual last closed
+    assert first[4] == pytest.approx(2050.0) and first[6] == pytest.approx(5e6)
+    # Not a market-wide hole: nothing is filled.
+    assert archive.patch_from_spot("1000PEPEUSDT", "1h", 3_600_000, tmp_path / "b", perp, set())[1] == 0
+    # Same ticker, different asset (ratio is not the expected multiple): refused.
+    monkeypatch.setattr(archive, "_thread_http", lambda *a, **k: StubHttp(serve("ZZZUSDT")))
+    out2, n2 = archive.patch_from_spot("ZZZUSDT", "1h", 3_600_000, tmp_path / "c", perp, {"2024-01-02"})
+    assert n2 == 0 and len(out2) == 48

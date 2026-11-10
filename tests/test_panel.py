@@ -94,3 +94,15 @@ def test_liquidity_rank_requires_a_live_market_and_respects_exclusions():
     rank = liquidity_rank(times, vol, close, HOUR_MS, exclude=np.array([False, False, True]))
     assert (rank[:, 2] == 0).all()                             # excluded, however liquid
     assert rank[-1, 1] == 0 and rank[-1, 0] == 1               # the delisted symbol drops out
+
+
+def test_funding_alignment_tolerates_jitter_and_repeats():
+    a = klines(T0, 24)
+    f = np.array([[T0 + 8 * HOUR_MS - 30_000, 0.0001],        # stamped half a minute early
+                  [T0 + 8 * HOUR_MS, 0.0001],                  # the same settlement repeated
+                  [T0 + 16 * HOUR_MS + 4, -0.0002],
+                  [T0 + 20 * HOUR_MS + 600_000, 0.0009]])      # ten minutes off the grid: not a settlement
+    p = build_panel(HOUR_MS, {"AUSDT": a}, {"AUSDT": f})
+    assert p.funding[7, 0] == pytest.approx(0.0001)           # booked once, not twice
+    assert p.funding[15, 0] == pytest.approx(-0.0002)
+    assert np.count_nonzero(p.funding) == 2

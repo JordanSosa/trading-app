@@ -23,13 +23,13 @@
   "period": "train",
   "rows": [
     {
-      "avg_gross": 0.3003308774583648,
+      "avg_gross": 0.30142487303933657,
       "band": 0.25,
-      "cagr": 0.5119327023263345,
-      "compound_daily": 0.0011332135681920738,
-      "daily_vol": 0.014499315446767304,
+      "cagr": 0.5325914653681123,
+      "compound_daily": 0.0011704380472696175,
+      "daily_vol": 0.014573140251656805,
       "label": "rebalance_every=1 smooth_bars=1",
-      "max_drawdown": 0.25624721563636366,
+      "max_drawdown": 0.25624721563636355,
       "overrides": {
         "rebalance_every": 1,
         "smooth_bars": 1
@@ -41,6 +41,7 @@
         "long_scale": 1.0,
         "max_symbol_risk": 0.5,
         "rebalance_every": 1,
+        "rebalance_phase": 0,
         "reversal_hold": 24,
         "reversal_lookback": 24,
         "reversal_trend": 768,
@@ -71,18 +72,18 @@
         "xsmom_lookback": 336,
         "xsmom_weight": 0.0
       },
-      "pct_days_at_target": 0.0854014598540146,
-      "sharpe": 1.6307328947136137,
-      "turnover_per_day": 0.42665400135943793
+      "pct_days_at_target": 0.08686131386861314,
+      "sharpe": 1.6726530838800253,
+      "turnover_per_day": 0.4274535304232182
     },
     {
-      "avg_gross": 0.30031295377261324,
+      "avg_gross": 0.30140694935358514,
       "band": 0.25,
-      "cagr": 0.5927054645742367,
-      "compound_daily": 0.0012759753380933547,
-      "daily_vol": 0.013861460852978996,
+      "cagr": 0.5974720185301197,
+      "compound_daily": 0.0012841728620791215,
+      "daily_vol": 0.013920607097013874,
       "label": "rebalance_every=1 smooth_bars=12",
-      "max_drawdown": 0.20166302843642192,
+      "max_drawdown": 0.19265827581971584,
       "overrides": {
         "rebalance_every": 1,
         "smooth_bars": 12
@@ -94,6 +95,7 @@
         "long_scale": 1.0,
         "max_symbol_risk": 0.5,
         "rebalance_every": 1,
+        "rebalance_phase": 0,
         "reversal_hold": 24,
         "reversal_lookback": 24,
         "reversal_trend": 768,
@@ -103,6 +105,60 @@
         "risk_budget": 0.004,
         "short_scale": 0.0,
         "smooth_bars": 12,
+        "stop_max": 0.25,
+        "stop_min": 0.03,
+        "stop_vol_mult": 3.0,
+        "target_vol": 0.02,
+        "trend_horizons": [
+          48,
+          96,
+          192,
+          384,
+          768
+        ],
+        "trend_response": "linear",
+        "trend_weight": 1.0,
+        "trend_z_scale": 1.0,
+        "universe_n": 10,
+        "vol_floor": 0.01,
+        "vol_mode": "target",
+        "vol_window": 336,
+        "xsmom_lookback": 336,
+        "xsmom_weight": 0.0
+      },
+      "pct_days_at_target": 0.08175182481751825,
+      "sharpe": 1.894629892745027,
+      "turnover_per_day": 0.15109562589757608
+    },
+    {
+      "avg_gross": 0.30137807581392656,
+      "band": 0.25,
+      "cagr": 0.5314099860242867,
+      "compound_daily": 0.0011683226990080642,
+      "daily_vol": 0.013756336307198573,
+      "label": "rebalance_every=1 smooth_bars=24",
+      "max_drawdown": 0.24244421952128126,
+      "overrides": {
+        "rebalance_every": 1,
+        "smooth_bars": 24
+      },
+      "params": {
+        "carry_scale": 0.0005,
+        "carry_weight": 0.0,
+        "carry_window": 168,
+        "long_scale": 1.0,
+        "max_symbol_risk": 0.5,
+        "rebalance_every": 1,
+        "rebalance_phase": 0,
+        "reversal_hold": 24,
+        "reversal_lookback": 24,
+        "reversal_trend": 768,
+        "reversal_weight": 0.0,
+        "reversal_z": 2.0,
+        "rho": 0.7,
+        "risk_budget": 0.004,
+        "short_scale": 0.0,
+        "smooth_bars": 24,
         "stop_max": 0.25,
         "stop_min": 0.03,
         "stop_vol_mult": 3.0,
@@ -125,70 +181,17 @@
         "xsmom_weight": 0.0
       },
       "pct_days_at_target": 0.08029197080291971,
-      "sharpe": 1.890295264900516,
-      "turnover_per_day": 0.15082262878713726
+      "sharpe": 1.7533900942246134,
+      "turnover_per_day": 0.11571471204231507
     },
     {
-      "avg_gross": 0.3002840802329548,
+      "avg_gross": 0.30171640201964117,
       "band": 0.25,
-      "cagr": 0.5248707189819242,
-      "compound_daily": 0.0011565851293865602,
-      "daily_vol": 0.013693426190777494,
-      "label": "rebalance_every=1 smooth_bars=24",
-      "max_drawdown": 0.2545147318416523,
-      "overrides": {
-        "rebalance_every": 1,
-        "smooth_bars": 24
-      },
-      "params": {
-        "carry_scale": 0.0005,
-        "carry_weight": 0.0,
-        "carry_window": 168,
-        "long_scale": 1.0,
-        "max_symbol_risk": 0.5,
-        "rebalance_every": 1,
-        "reversal_hold": 24,
-        "reversal_lookback": 24,
-        "reversal_trend": 768,
-        "reversal_weight": 0.0,
-        "reversal_z": 2.0,
-        "rho": 0.7,
-        "risk_budget": 0.004,
-        "short_scale": 0.0,
-        "smooth_bars": 24,
-        "stop_max": 0.25,
-        "stop_min": 0.03,
-        "stop_vol_mult": 3.0,
-        "target_vol": 0.02,
-        "trend_horizons": [
-          48,
-          96,
-          192,
-          384,
-          768
-        ],
-        "trend_response": "linear",
-        "trend_weight": 1.0,
-        "trend_z_scale": 1.0,
-        "universe_n": 10,
-        "vol_floor": 0.01,
-        "vol_mode": "target",
-        "vol_window": 336,
-        "xsmom_lookback": 336,
-        "xsmom_weight": 0.0
-      },
-      "pct_days_at_target": 0.07956204379562044,
-      "sharpe": 1.7438756244899494,
-      "turnover_per_day": 0.11571011775662438
-    },
-    {
-      "avg_gross": 0.30062841362059867,
-      "band": 0.25,
-      "cagr": 0.6143797518651073,
-      "compound_daily": 0.0013130553535342581,
-      "daily_vol": 0.014167221980086513,
+      "cagr": 0.6304918319848254,
+      "compound_daily": 0.0013402993356048404,
+      "daily_vol": 0.014233515501206218,
       "label": "rebalance_every=4 smooth_bars=1",
-      "max_drawdown": 0.20348898610386923,
+      "max_drawdown": 0.20348898610386967,
       "overrides": {
         "rebalance_every": 4,
         "smooth_bars": 1
@@ -200,6 +203,7 @@
         "long_scale": 1.0,
         "max_symbol_risk": 0.5,
         "rebalance_every": 4,
+        "rebalance_phase": 0,
         "reversal_hold": 24,
         "reversal_lookback": 24,
         "reversal_trend": 768,
@@ -230,18 +234,18 @@
         "xsmom_lookback": 336,
         "xsmom_weight": 0.0
       },
-      "pct_days_at_target": 0.08394160583941605,
-      "sharpe": 1.9050170386436234,
-      "turnover_per_day": 0.27430929793976516
+      "pct_days_at_target": 0.08467153284671533,
+      "sharpe": 1.9339554723372263,
+      "turnover_per_day": 0.2746241222982133
     },
     {
-      "avg_gross": 0.30030569355156056,
+      "avg_gross": 0.30139968913253246,
       "band": 0.25,
-      "cagr": 0.560156958921094,
-      "compound_daily": 0.0012193357474411105,
-      "daily_vol": 0.013848464008649208,
+      "cagr": 0.5679375720319575,
+      "compound_daily": 0.0012329817097158568,
+      "daily_vol": 0.013912055497876835,
       "label": "rebalance_every=4 smooth_bars=12",
-      "max_drawdown": 0.21242594923547542,
+      "max_drawdown": 0.19926555943973,
       "overrides": {
         "rebalance_every": 4,
         "smooth_bars": 12
@@ -253,6 +257,7 @@
         "long_scale": 1.0,
         "max_symbol_risk": 0.5,
         "rebalance_every": 4,
+        "rebalance_phase": 0,
         "reversal_hold": 24,
         "reversal_lookback": 24,
         "reversal_trend": 768,
@@ -283,18 +288,18 @@
         "xsmom_lookback": 336,
         "xsmom_weight": 0.0
       },
-      "pct_days_at_target": 0.0781021897810219,
-      "sharpe": 1.813699258453231,
-      "turnover_per_day": 0.15266255516439958
+      "pct_days_at_target": 0.07883211678832117,
+      "sharpe": 1.8253432218113221,
+      "turnover_per_day": 0.15257456651073031
     },
     {
-      "avg_gross": 0.3002767522698538,
+      "avg_gross": 0.3013707478508256,
       "band": 0.25,
-      "cagr": 0.48410969989134145,
-      "compound_daily": 0.001082270338554637,
-      "daily_vol": 0.01368700699194321,
+      "cagr": 0.48999489986510425,
+      "compound_daily": 0.0010931249631512961,
+      "daily_vol": 0.013743756681887525,
       "label": "rebalance_every=4 smooth_bars=24",
-      "max_drawdown": 0.2785861923032046,
+      "max_drawdown": 0.2677898325718462,
       "overrides": {
         "rebalance_every": 4,
         "smooth_bars": 24
@@ -306,6 +311,7 @@
         "long_scale": 1.0,
         "max_symbol_risk": 0.5,
         "rebalance_every": 4,
+        "rebalance_phase": 0,
         "reversal_hold": 24,
         "reversal_lookback": 24,
         "reversal_trend": 768,
@@ -336,18 +342,18 @@
         "xsmom_lookback": 336,
         "xsmom_weight": 0.0
       },
-      "pct_days_at_target": 0.07956204379562044,
-      "sharpe": 1.6408661966505569,
-      "turnover_per_day": 0.11673279681753593
+      "pct_days_at_target": 0.08029197080291971,
+      "sharpe": 1.6502566936706713,
+      "turnover_per_day": 0.1167289795416199
     },
     {
-      "avg_gross": 0.30108856688829294,
+      "avg_gross": 0.3021405712110178,
       "band": 0.25,
-      "cagr": 0.6196408034705903,
-      "compound_daily": 0.0013219809883568733,
-      "daily_vol": 0.014197130780831325,
+      "cagr": 0.6275458030598693,
+      "compound_daily": 0.0013353379980248232,
+      "daily_vol": 0.014262152746483223,
       "label": "rebalance_every=8 smooth_bars=1",
-      "max_drawdown": 0.2086493381080814,
+      "max_drawdown": 0.20864933810808117,
       "overrides": {
         "rebalance_every": 8,
         "smooth_bars": 1
@@ -359,6 +365,7 @@
         "long_scale": 1.0,
         "max_symbol_risk": 0.5,
         "rebalance_every": 8,
+        "rebalance_phase": 0,
         "reversal_hold": 24,
         "reversal_lookback": 24,
         "reversal_trend": 768,
@@ -390,17 +397,17 @@
         "xsmom_weight": 0.0
       },
       "pct_days_at_target": 0.08175182481751825,
-      "sharpe": 1.9136552174686206,
-      "turnover_per_day": 0.215060182875759
+      "sharpe": 1.924042138550827,
+      "turnover_per_day": 0.21522785758903618
     },
     {
-      "avg_gross": 0.30036281820778854,
+      "avg_gross": 0.3014436334229048,
       "band": 0.25,
-      "cagr": 0.5502526615017012,
-      "compound_daily": 0.0012018666637521691,
-      "daily_vol": 0.013957598253365238,
+      "cagr": 0.5567220022066066,
+      "compound_daily": 0.0012132897695441213,
+      "daily_vol": 0.014009318704505194,
       "label": "rebalance_every=8 smooth_bars=12",
-      "max_drawdown": 0.23162568142119477,
+      "max_drawdown": 0.2195210357654832,
       "overrides": {
         "rebalance_every": 8,
         "smooth_bars": 12
@@ -412,6 +419,7 @@
         "long_scale": 1.0,
         "max_symbol_risk": 0.5,
         "rebalance_every": 8,
+        "rebalance_phase": 0,
         "reversal_hold": 24,
         "reversal_lookback": 24,
         "reversal_trend": 768,
@@ -442,18 +450,18 @@
         "xsmom_lookback": 336,
         "xsmom_weight": 0.0
       },
-      "pct_days_at_target": 0.07591240875912408,
-      "sharpe": 1.7777329742200396,
-      "turnover_per_day": 0.15152302534657558
+      "pct_days_at_target": 0.07737226277372262,
+      "sharpe": 1.787728253933238,
+      "turnover_per_day": 0.1514463612577097
     },
     {
-      "avg_gross": 0.30026584234544296,
+      "avg_gross": 0.30135983792641474,
       "band": 0.25,
-      "cagr": 0.5095123859370858,
-      "compound_daily": 0.0011288193099438086,
-      "daily_vol": 0.013869876673429907,
+      "cagr": 0.5137780118002577,
+      "compound_daily": 0.0011365591494981648,
+      "daily_vol": 0.013933525409277317,
       "label": "rebalance_every=8 smooth_bars=24",
-      "max_drawdown": 0.2743381770781578,
+      "max_drawdown": 0.266611422443916,
       "overrides": {
         "rebalance_every": 8,
         "smooth_bars": 24
@@ -465,6 +473,7 @@
         "long_scale": 1.0,
         "max_symbol_risk": 0.5,
         "rebalance_every": 8,
+        "rebalance_phase": 0,
         "reversal_hold": 24,
         "reversal_lookback": 24,
         "reversal_trend": 768,
@@ -496,17 +505,17 @@
         "xsmom_weight": 0.0
       },
       "pct_days_at_target": 0.08248175182481751,
-      "sharpe": 1.6868358700385317,
-      "turnover_per_day": 0.11770076813395709
+      "sharpe": 1.690958993461418,
+      "turnover_per_day": 0.11758800161644767
     },
     {
-      "avg_gross": 0.3027824664776956,
+      "avg_gross": 0.3039153647550086,
       "band": 0.25,
-      "cagr": 0.4439638520638223,
-      "compound_daily": 0.0010070601886526238,
-      "daily_vol": 0.01409237894165001,
+      "cagr": 0.44466798919869066,
+      "compound_daily": 0.0010083972139519517,
+      "daily_vol": 0.014174693927663998,
       "label": "rebalance_every=24 smooth_bars=1",
-      "max_drawdown": 0.28317739707374556,
+      "max_drawdown": 0.28317739707374534,
       "overrides": {
         "rebalance_every": 24,
         "smooth_bars": 1
@@ -518,6 +527,7 @@
         "long_scale": 1.0,
         "max_symbol_risk": 0.5,
         "rebalance_every": 24,
+        "rebalance_phase": 0,
         "reversal_hold": 24,
         "reversal_lookback": 24,
         "reversal_trend": 768,
@@ -548,18 +558,18 @@
         "xsmom_lookback": 336,
         "xsmom_weight": 0.0
       },
-      "pct_days_at_target": 0.07226277372262774,
-      "sharpe": 1.4994832317174154,
-      "turnover_per_day": 0.14549013218714207
+      "pct_days_at_target": 0.07372262773722628,
+      "sharpe": 1.4941422594108509,
+      "turnover_per_day": 0.14552033243617837
     },
     {
-      "avg_gross": 0.3012517972925053,
+      "avg_gross": 0.30234672357421044,
       "band": 0.25,
-      "cagr": 0.43961306814242995,
-      "compound_daily": 0.0009987844116414982,
-      "daily_vol": 0.013960423780582399,
+      "cagr": 0.4429944634955898,
+      "compound_daily": 0.0010052184361473105,
+      "daily_vol": 0.01403533401511998,
       "label": "rebalance_every=24 smooth_bars=12",
-      "max_drawdown": 0.3100090039227944,
+      "max_drawdown": 0.3039062576833934,
       "overrides": {
         "rebalance_every": 24,
         "smooth_bars": 12
@@ -571,6 +581,7 @@
         "long_scale": 1.0,
         "max_symbol_risk": 0.5,
         "rebalance_every": 24,
+        "rebalance_phase": 0,
         "reversal_hold": 24,
         "reversal_lookback": 24,
         "reversal_trend": 768,
@@ -601,18 +612,18 @@
         "xsmom_lookback": 336,
         "xsmom_weight": 0.0
       },
-      "pct_days_at_target": 0.072992700729927,
-      "sharpe": 1.4998642599491956,
-      "turnover_per_day": 0.12470498608257996
+      "pct_days_at_target": 0.07372262773722628,
+      "sharpe": 1.5020508141155255,
+      "turnover_per_day": 0.12467071741458688
     },
     {
-      "avg_gross": 0.30022521027611754,
+      "avg_gross": 0.30131920585708927,
       "band": 0.25,
-      "cagr": 0.4470885589425695,
-      "compound_daily": 0.0010129884732630197,
-      "daily_vol": 0.014004633535393593,
+      "cagr": 0.45152192476332287,
+      "compound_daily": 0.0010213777150700272,
+      "daily_vol": 0.014054434405513221,
       "label": "rebalance_every=24 smooth_bars=24",
-      "max_drawdown": 0.33185790763206746,
+      "max_drawdown": 0.3241423706131429,
       "overrides": {
         "rebalance_every": 24,
         "smooth_bars": 24
@@ -624,6 +635,7 @@
         "long_scale": 1.0,
         "max_symbol_risk": 0.5,
         "rebalance_every": 24,
+        "rebalance_phase": 0,
         "reversal_hold": 24,
         "reversal_lookback": 24,
         "reversal_trend": 768,
@@ -654,9 +666,9 @@
         "xsmom_lookback": 336,
         "xsmom_weight": 0.0
       },
-      "pct_days_at_target": 0.0781021897810219,
-      "sharpe": 1.515417618157347,
-      "turnover_per_day": 0.11182879161031944
+      "pct_days_at_target": 0.07883211678832117,
+      "sharpe": 1.5223976432279815,
+      "turnover_per_day": 0.1116468461104452
     }
   ]
 }

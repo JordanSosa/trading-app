@@ -38,7 +38,6 @@ log = logging.getLogger(__name__)
 MAX_SOFT_FAILURES = 3        # consecutive data failures tolerated before a tick exits non-zero
 CLOSE_GRACE_MS = 3_000       # a bar is final this long after its close time
 UNIVERSE_HISTORY = 8         # refreshes kept in the state document
-STALE_POSITION_BARS = 24     # paper mode: close a position whose market has had no bar for this long
 
 
 @dataclass
@@ -458,7 +457,6 @@ def tick(cfg: Config, store: StateStore, market: MarketData | None = None, now_m
             for i in usable:
                 engine.on_close(int(panel.times[i]), panel.open[i], panel.high[i], panel.low[i], panel.close[i],
                                 tg.weights[i], tg.stop_frac[i], panel.funding[i])
-            _close_stale_positions(engine, panel, events, now_ms, broker)
 
         # 4) execute pending orders at the open of the forming bar -------------------
         if state.pending is not None and snap.forming_ms is not None and snap.forming_open is not None:
@@ -513,24 +511,6 @@ def tick(cfg: Config, store: StateStore, market: MarketData | None = None, now_m
            f"status {state.status}; data {snap.provider}")
     return TickResult(True, state.status, msg, bars_processed=n_bars, trades=engine.trades, events=events,
                       equity=equity_now, provider=snap.provider)
-
-
-def _close_stale_positions(engine: Engine, panel: Panel, events: list[dict[str, Any]], now_ms: int,
-                           broker: Any) -> None:
-    """Paper mode: a position in a market that stopped printing bars is closed at its last price."""
-    if broker is not None:
-        return
-    s = engine.state
-    recent = panel.close[-STALE_POSITION_BARS:]
-    dead = (s.qty != 0.0) & ~np.isfinite(recent).any(axis=0)
-    for j in np.nonzero(dead)[0]:
-        px = float(s.last_price[j])
-        if not math.isfinite(px) or px <= 0:
-            continue
-        engine._book(now_ms, int(j), -float(s.qty[j]), px, "market closed")
-        events.append({"ts_ms": now_ms, "kind": "alert",
-                       "message": f"{s.symbols[j]}: no bars for {STALE_POSITION_BARS}h; position closed at last "
-                                  f"price {px:.6g}"})
 
 
 def _record_failure(store: StateStore, doc: dict[str, Any], now_ms: int, message: str, notifier: Any,
