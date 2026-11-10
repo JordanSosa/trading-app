@@ -1,137 +1,145 @@
-# tradebot: BTC/USDT paper trading
+# compounder
 
-`tradebot` forward-trades BTC/USDT with paper money on 1-hour candles for a fixed
-30-day campaign. It runs unattended, monitors itself, and publishes its results.
-The live (forward) run and the backtester share one event-driven engine, so the
-two can be compared directly. A tick-by-tick replay of the live path reproduces
-the backtest to full floating-point precision (see `tests/test_forward.py`).
+A crypto trading bot that compounds a small account (from 100 USDT) under a
+strict risk governor. It trades the 20 most liquid crypto perpetuals, long and
+short, with a trend and momentum strategy; measures every day against a
+**2% daily profit target**; and runs backtests, paper trading on live market
+data and (opt-in) live trading on **one engine**, so the three can be
+compared like for like.
 
-> **Paper money only.** No exchange keys are used and no orders are sent. Live
-> trading is deliberately not implemented, and the config refuses any
-> `mode` other than `paper`.
+## Read this first: what a 2% a day target gets you
 
-## What to expect (read this first)
+**The bot does not make 2% a day, and nothing here should be read as saying
+it will.** 2% a day compounding is 1,377x a year: 100 USDT would become
+137,700 in twelve months. The research behind this app set out to measure
+how close a robust strategy gets, on six years of data, with the last 22
+months held back and evaluated once.
 
-No strategy can promise a profit in any given 30 days, and this one doesn't.
+| Default configuration | Development 2020-04 to 2024-12 (in-sample) | **Holdout 2025-01 to 2026-10 (out-of-sample)** |
+|---|---:|---:|
+| Compound return per day, from 10,000 USDT | +0.118% | **+0.050%** |
+| Total / annualised | +676% / +54% | **+39.8% / +20.1%** |
+| Maximum drawdown | 21.5% | **23.2%** |
+| Days at or above +2% | 7.8% | **7.6%** |
+| Worst day | -5.3% | -5.3% |
+| From 1,000 USDT: compound per day, max drawdown | +0.120%, 20.9% | +0.035%, 25.4% |
+| From 100 USDT: compound per day, max drawdown | +0.157%, 24.3% | +0.009%, 39.8% |
+| BTC buy and hold, for scale | +0.153% a day, 76.7% drawdown | -0.030% a day (-18.0%), 53.0% drawdown |
 
-**Default strategy: `lss_breakdown_vol`** (long/short, hybrid mode):
+After fees, slippage and funding. The out-of-sample column is the one to
+believe, and it is a single 22-month period in which 2025 lost 5.9% and
+2026 made 48.7%.
 
-* **Long side:** the long-only breakout system `breakout_dual`. It holds 0%,
-  50% or 100% BTC on spot, based on a 6-day-high breakout and a
-  600-hour-EMA + 3 x ATR band breakout.
-* **Short side:** a bear-only "short sleeve" on BTC perpetual futures. It runs
-  only while the long side is flat and BTC is below its 125-day average (but
-  not more than 35% below it). It enters on a fresh 10-day low, covers on a
-  2-day high, and is volatility-sized at 0.25-1.0 of equity. It is short
-  about 11% of the time.
+What the evidence says about the target:
 
-Both sides were selected under pre-registered rules from independently
-researched and audited strategy families (`research/SELECTION.md`,
-`research/LONG_SHORT_PROTOCOL.md`, `research/LONG_SHORT_DECISION.md`). The
-table shows 30-day campaigns that start flat with 10,000 USDT and end flat,
-one started every day, after fees and funding.
+* **Out of sample the strategy compounded at 0.05% a day**, one fortieth
+  of 2%. That is about +20% a year with a 23% drawdown, in a period when
+  Bitcoin fell 18%.
+* **Turning the risk up does not get there.** In-sample, compound growth
+  peaked at 0.19% a day and fell beyond that. Out of sample, doubling the
+  default risk cut the result from +39.8% to +10.6% with a 38.7% drawdown,
+  and from a 4% volatility target the kill switch ended the run 28% to 37%
+  down.
+* **"Banking" 2% a day makes it worse.** Closing everything once the day is
+  up 2% turned the out-of-sample gain into a 5.5% loss: it caps the few
+  large days the profit comes from and keeps every losing day. So the
+  target is measured and reported, never traded on.
+* **Costs decide it.** At doubled fees and slippage the out-of-sample
+  result falls to +8.7%.
+* **100 USDT is the minimum that functions, not the size these numbers
+  describe.** Exchange minimum order sizes hold a 100 USDT account to a
+  handful of positions; it beat the large account in development and made
+  +5.9% against +39.8% in the holdout, with a drawdown that stopped just
+  short of the kill switch. From about 1,000 USDT the book is close to the
+  tested one.
+* **A year from here:** resampling the out-of-sample days gives a median of
+  +20%, a range of roughly -31% to +123%, a three-in-ten chance of a losing
+  year and a 20% drawdown more likely than not. If the edge has gone, the
+  expected result is the cost drag: a few percent a year below zero.
 
-| 30-day campaigns | Long-only (spot) | **Long/short (hybrid, default)** | Buy & hold |
-|---|---:|---:|---:|
-| 2018-2024: mean return | +4.89% | **+6.24%** | +4.61% |
-| 2018-2024: ended in profit / at a loss | 47% / 49% | **57% / 43%** | 54% / 46% |
-| 2018-2024: bad month (5th percentile) | -8.4% | -9.1% | -28.2% |
-| 2018-2024: continuous max drawdown | 32.5% | **28.8%** | 81% |
-| 2024 only (out of sample for both): total | +54.7% | +58.3% | +121% |
-| 2025-01 to 2026-11 (see note): total | +12.5% | **+33.4%** | -13.9% |
-| 2025-01 to 2026-11: mean 30-day return | +0.63% | **+1.44%** | -0.21% |
-| 2025-01 to 2026-11: max drawdown | 22.4% | **16.6%** | 54% |
-
-How to read this:
-
-* **Long-only edge:** the long side beats buy-and-hold mainly by sitting out
-  bear markets. It lags in strong bull years (2020, 2023, 2024).
-* **What shorts add:** the short sleeve added about +1.2% per 30 days on
-  2018-2024. About 84% of that came from five crash trades (Feb 2018,
-  Nov 2018, Mar 2020, May 2021, Jan 2022). In 2024, the one fully
-  out-of-sample year, it added almost nothing. In bull markets it whipsaws
-  for small losses. Treat it as crash insurance with positive expected value,
-  not as profit on both sides every month.
-* **About the 2025-26 rows:** this period was evaluated after the long-only
-  strategy was chosen, but its 36% decline was already known when the short
-  research ran. The long/short numbers for it are therefore flattered by
-  hindsight and are not a clean test.
-* **Current state (2026-11-05):** BTC is above its 125-day average, so the
-  short sleeve is off and the strategy is flat. It buys on an upside breakout,
-  and shorts only if BTC drops below about 74k and makes a fresh 10-day low.
-
-**Running it for real later:** shorting needs a perpetual-futures account.
-Retail access is restricted in some countries (for example, in Australia
-ASIC licenses retail crypto derivatives and has penalised an unlicensed
-offering). The paper run needs no account.
+The full record is in [`research/`](research): the protocol written before
+any result existed, the candidates frozen before the validation year, the
+selection frozen before the holdout, the independent audit, and
+[`RESULTS.md`](research/RESULTS.md).
 
 ## How it trades
 
 ```
-market data ──► strategy (causal signals) ──► engine ──► paper fills ──► ledgers / reports / alerts
- Binance mirror   target exposure 0..1          risk overlay   next-bar open,   trades.csv, equity.csv,
- + 4 fallbacks    decided at each bar close     stops, limits  fees + slippage  STATUS.md, notifications
+market data ──► strategy ──► risk governor ──► engine ──► fills ──► ledgers, status page, alerts
+ OKX perps        target         loss limit,      orders at     paper (simulated)
+ (+ Gate as       weights        drawdown         the next      or live (exchange)
+ cross-check)     every hour     scaling, kill    hourly open
 ```
 
-* **Data**: closed 1h candles from `data-api.binance.vision`, Binance's
-  market-data-only mirror. It is reachable from US-hosted runners, where
-  `api.binance.com` returns HTTP 451. OKX, KuCoin, Gate and Coinbase are
-  automatic fallbacks. Every tick cross-checks the newest bars against a second
-  venue and refuses to trade on a deviation above 1.5%.
-* **Decisions** use closed bars only. Fills happen at the **next bar's open**
-  with 0.10% fee and 3 bps slippage per side, using Binance's lot size
-  (0.00001 BTC) and a 10 USDT minimum notional. No leverage: exposure is
-  between -100% and +100% of equity.
-* **Instruments** (`[run] instrument`):
-  * `spot`: long or flat only.
-  * `perp`: everything on USDT-margined perpetual futures (0.05% fees and
-    funding).
-  * `hybrid` (default): longs on spot, shorts on perpetuals. Shorts receive
-    or pay 8-hourly funding: the live run uses OKX's public funding history
-    (Bitget as fallback), and backtests use Binance's archive.
-* **Risk overlay** (`[risk]` in the config):
-  * **Circuit breaker**: if equity falls 10% from its high-water mark, sell
-    everything and pause for 48 hours.
-  * **Campaign stop-loss**: if equity falls 15% below the starting capital,
-    sell everything and stop trading for the rest of the run.
-  * **Rebalance band**: exposure changes smaller than 10% of equity are skipped,
-    to save fees.
-* **Campaign**: the run lasts 30 days on the hourly bar grid, then sells to
-  USDT so the result is fully realised (`end_action = "flatten"`).
-* **Catch-up**: every tick replays every bar that closed since the last one
-  (up to 30 days), so a delayed or missed scheduler run changes nothing.
-  Running a tick twice is a no-op.
+* **Universe.** Every Monday 00:00 UTC the crypto perpetuals are ranked by
+  their average daily volume over the previous 30 days; the top 20 that have
+  been listed for at least 30 days are traded. Stablecoins, indexes and the
+  tokenised stocks, ETFs and metals that exchanges now list as perpetuals
+  are excluded.
+* **Signal.** For each symbol, the average of its 2, 4, 8, 16 and 32-day
+  returns, each measured in units of its own volatility and clipped to
+  ±1 (trend), plus its rank among the 20 by 14-day return (cross-sectional
+  momentum). Positive means long, negative means short at half size.
+* **Sizing.** Weights are inversely proportional to each symbol's
+  volatility and scaled so the whole portfolio targets a fixed **daily
+  volatility** (`strategy.target_vol`, 1.5% by default). That number is the
+  risk dial: equity invested rises and falls with market volatility, the
+  expected daily swing does not. Target weights are averaged over 12 hours
+  and a position is only adjusted when it is more than 25% away from its
+  target; without this, trading costs eat the entire edge (see research).
+* **Execution.** Decisions use closed 1-hour bars only. Orders fill at the
+  next bar's open; the paper engine charges 0.05% fee and 0.03% slippage a
+  side and books funding at the venue's real rates.
+* **Compounding.** Every position is a fraction of *current* equity, so
+  gains are reinvested automatically. Small accounts hold fewer, larger
+  positions so that each clears the exchange's minimum order size.
 
-## Running the 30-day paper run
+## Risk controls
 
-### Option A: GitHub Actions (no server needed, recommended)
+| Control | Default | What it does |
+|---|---|---|
+| Volatility target | 1.5% a day | Sizes the whole book; the main risk setting |
+| Exposure caps | 3.0x gross, 0.6x per symbol | Hard limits whatever the signal says |
+| Disaster stop | 4 daily sigmas (3%-25%) | A resting reduce-only stop per position; protects while the bot is offline |
+| Dead markets | 48 hours without a bar | The position is settled at its last price (a delisting) |
+| Daily loss limit | 3% | Down 3% on the UTC day: flat until tomorrow |
+| Drawdown scaling | from 15% to 35% | Risk shrinks linearly to half as the drawdown deepens |
+| Kill switch | 40% drawdown | Flatten and stop until a person runs `compounder resume` |
+| Liquidation model | 2.5% maintenance margin | Backtests and paper runs wipe the account when a real exchange would |
+| Data cross-check | 2% | Refuses to trade if the venue's prices disagree with a second venue |
+| Daily profit target | 2%, measured | Reported every day; **not** used to close winners (doing so turned the out-of-sample gain into a loss) |
 
-`.github/workflows/paper-trade.yml` ticks every 15 minutes and commits the run
-state to an orphan branch, **`paper-state`**, which never touches your code
-branches.
+The kill switch cannot be disabled. It is the reason the account cannot be
+run to zero by the strategy alone; it does not protect against an exchange
+failing, a price gap through the stops, or a bug.
 
-1. Merge this branch into the default branch (`main`). GitHub only runs
-   scheduled workflows from the default branch.
-2. In **Settings → Actions → General**, allow workflows to run, and under
-   "Workflow permissions" allow read and write. The workflow pushes only to
-   `paper-state`.
-3. Optional: start immediately with **Actions → "Paper trade BTC/USDT" → Run
-   workflow**. Otherwise the first scheduled tick starts the run.
-4. Watch it on the `paper-state` branch. Its `README.md` is the live status
-   page, with equity, P&L against buy & hold, position, fills, events, health
-   and an equity chart. Every run also writes the status to the Actions job
-   summary.
+## Quick start: paper trading
 
-To restart from scratch, run the workflow manually with **reset = true**. The
-old run is archived under `archive/` on the state branch.
+Paper mode needs no exchange account and no API keys. It trades simulated
+money against live OKX prices.
+
+### Option A: GitHub Actions (no server)
+
+`.github/workflows/paper-trade.yml` runs a tick every 15 minutes and commits
+the run to an orphan branch, **`paper-state`**, whose `README.md` is the live
+status page (equity curve, today's return against the target, positions,
+fills, alerts).
+
+1. Merge this branch into the default branch (scheduled workflows only run
+   from there).
+2. In **Settings → Actions → General**, allow workflows and give them read
+   and write permission. The workflow pushes only to `paper-state`.
+3. Optional: start now with **Actions → "Paper trade (compounder)" → Run
+   workflow**. A run left on `paper-state` by the previous app is archived
+   under `archive/` automatically.
 
 ### Option B: Docker (any always-on machine)
 
 ```bash
-docker compose up -d --build                                       # start / resume
-docker compose logs -f                                             # follow ticks
-docker compose exec tradebot tradebot status --state-dir /state    # status
-docker compose run --rm -p 8080:8080 tradebot serve --state-dir /state --host 0.0.0.0  # dashboard
+docker compose up -d --build                                             # start / resume
+docker compose logs -f                                                   # follow ticks
+docker compose exec compounder compounder status --state-dir /state      # status
+docker compose run --rm -p 8080:8080 compounder serve --state-dir /state --host 0.0.0.0
 ```
 
 ### Option C: plain Python
@@ -139,111 +147,148 @@ docker compose run --rm -p 8080:8080 tradebot serve --state-dir /state --host 0.
 ```bash
 python -m venv .venv && . .venv/bin/activate
 pip install --require-hashes -r requirements.txt && pip install --no-deps --no-build-isolation .
-tradebot run                  # daemon: ticks ~20 s after every hourly close
-# or schedule `tradebot tick` with cron every 5-15 minutes
-tradebot status
-tradebot serve                # http://127.0.0.1:8080/ dashboard
+compounder run                    # daemon: ticks ~15 s after every hourly close
+# or schedule `compounder tick` with cron every 5-15 minutes
+compounder status
+compounder serve                  # http://127.0.0.1:8080/
 ```
+
+To paper trade a different deposit, set `run.initial_equity` (100 USDT
+minimum) in `config/paper.toml`. Presets: `config/aggressive.toml` (twice
+the risk) and `config/spot.toml` (long or flat, no leverage).
+
+A tick is idempotent: it replays every hourly bar that closed since the last
+one (up to a week), so a late or missed run changes nothing, and running it
+twice does nothing the second time. A paper fill uses the open of the bar
+that has just started, or the latest price if the tick is more than five
+minutes late.
+
+## Backtesting
+
+```bash
+compounder download --end 2026-10          # ~40 min: every USDT perpetual's history, checksum-verified, holes repaired
+compounder backtest --start 2025-01-01 --equity 100 --ruin --no-months
+compounder backtest --config config/aggressive.toml --start 2025-01-01 --cost-mult 2
+compounder backtest --output out/           # daily.csv, equity.csv, trades.csv, metrics.json
+```
+
+The dataset is built from Binance's public archive and includes delisted
+symbols (LUNA, FTT, ...), ranked point-in-time, so the backtest cannot pick
+tomorrow's survivors. Holes in the archive's monthly files are filled from
+its daily files. `compound_daily` in the output is the constant daily
+return that compounds to the same result: the number to hold against 2%.
+`scripts/holdout.py` and `scripts/make_tables.py` reproduce the tables in
+`research/RESULTS.md`.
+
+## Going live (opt-in, read all of it)
+
+Live trading sends real market orders through [ccxt](https://github.com/ccxt/ccxt)
+to an **OKX** USDT-margined perpetual account (the same venue the paper run
+takes its prices from; it is the only venue supported). **It has been
+tested against a simulated exchange only** (`tests/test_broker.py`), never
+against the real one from the environment this was built in. Treat the
+first weeks as a test of the software, on OKX's demo trading environment.
+
+Real orders are sent only when all four hold: `run.mode = "live"`,
+`live.dry_run = false`, API keys in the environment, and the command carries
+`--i-understand-live-trading`.
+
+1. `pip install ".[live]"`.
+2. In OKX **demo trading**, create an API key with trade permission only
+   (no withdrawals). Use a dedicated account or sub-account that holds only
+   USDT, in one-way (net) position mode, with no other positions or orders.
+   The bot refuses an account with positions it is not tracking, and treats
+   every stop order on a symbol it trades as its own.
+3. `cp config/live.example.toml config/live.toml` (git-ignored). Leave
+   `sandbox = true` and `dry_run = true`.
+4. `export COMPOUNDER_API_KEY=... COMPOUNDER_API_SECRET=... COMPOUNDER_API_PASSWORD=...`
+5. `compounder live-check --config config/live.toml` prints the equity and
+   positions the bot sees. Check them against the exchange's own screen.
+6. `compounder run --config config/live.toml --i-understand-live-trading`
+   in dry-run logs every order it *would* send. Check the sizes.
+7. Set `dry_run = false` (still sandbox). Let it trade demo money next to a
+   paper run for a few weeks; the two should track each other.
+8. Only then set `sandbox = false`, with money you can afford to lose.
+
+What the live broker does: mirrors the exchange account into the engine
+before every decision; places market orders for the planned changes
+(reductions first); keeps one reduce-only stop order per position on the
+exchange; re-reads the account after trading and, if a position is far
+larger than intended (a contract-size or unit error), closes it and sets
+the kill switch. It refuses any single order above
+`live.max_order_notional` and any account above `live.max_account_equity`.
+
+Leveraged crypto derivatives are restricted or banned for retail clients in
+several countries (in Australia, for example, ASIC restricts their issue to
+retail clients). Whether you may trade them, and on which venue, is yours
+to establish; the spot preset exists for paper and backtest use.
 
 ## Monitoring and alerts
 
 | Where | What |
 |---|---|
-| `paper-state` branch, `README.md` / `STATUS.md` | Live status page with the SVG equity curve against buy & hold |
-| `dashboard.html`, `summary.json` | Same data as HTML (dark/light) and as machine-readable JSON |
-| `trades.csv`, `trips.csv`, `equity.csv`, `events.jsonl` | Append-only audit ledgers (hourly equity, every fill, every alert) |
-| Actions job summary | Status of every tick |
-| GitHub e-mail | Sent when the workflow fails. A tick exits non-zero after 3 consecutive data failures or on a config/state error |
-| Push notifications (optional) | Fills, alerts (circuit breaker, stop-loss, data problems), run start and end, and a daily summary |
+| `STATUS.md` / `README.md` on `paper-state` | Equity, today against the target, days at target, compound daily return achieved, drawdown, positions, last days, events |
+| `dashboard.html`, `summary.json` | The same as a web page and as JSON |
+| `trades.csv`, `daily.csv`, `equity.csv`, `events.jsonl` | Append-only ledgers: every fill, every completed day, hourly equity, every alert |
+| Push notifications (optional) | Alerts (loss limit, kill switch, stops, data problems), a daily summary, optionally fills |
 
-To enable push notifications, add any of these as repository secrets (Actions)
-or in `.env` (Docker): `TRADEBOT_NTFY_TOPIC` (free phone push via the ntfy app,
-no account needed; use a long random topic name), `TRADEBOT_DISCORD_WEBHOOK`,
-`TRADEBOT_SLACK_WEBHOOK`, or `TRADEBOT_TELEGRAM_BOT_TOKEN` +
-`TRADEBOT_TELEGRAM_CHAT_ID`.
+Notifications: set any of `COMPOUNDER_NTFY_TOPIC` (free phone push via the
+ntfy app; use a long random topic), `COMPOUNDER_DISCORD_WEBHOOK`,
+`COMPOUNDER_SLACK_WEBHOOK`, or `COMPOUNDER_TELEGRAM_BOT_TOKEN` +
+`COMPOUNDER_TELEGRAM_CHAT_ID`, as repository secrets (Actions) or in `.env`.
 
-## Research and backtesting
-
-```bash
-tradebot download                                   # full BTCUSDT 1h history (checksum-verified)
-tradebot strategies                                 # list strategies and defaults
-tradebot backtest --strategy breakout_dual --start 2022-01-01 --campaigns
-python scripts/ls_evaluate.py lss_breakdown_vol --mode hybrid   # long/short adoption metrics
-tradebot evaluate --period train                    # research score for a fixed period
-tradebot replay --out /tmp/replay                   # run the live code path over the last 31 days
-```
-
-The research protocol (`src/tradebot/research.py`):
-
-* **Fixed periods**: TRAIN 2018–2023 (design and tuning), VALID 2024 (checked
-  once), HOLDOUT 2025-01-01 to today (touched once, after the final selection).
-  The research agents never had access to holdout data.
-* **Pre-declared score**: the mean of log(1 + r) over 30-day campaigns started
-  every day. Each campaign starts flat with fresh capital and ends flat,
-  exactly like the deployed run.
-* **Causality gate**: `check_causal` verifies that signals on any prefix and on
-  the shortest rolling window the live run can use (`warmup_bars + 1`) equal
-  the full-history signals. This catches look-ahead bias and undersized
-  warm-ups for recursive indicators.
-* Every strategy family was independently audited for look-ahead bias,
-  reproducibility, parameter sensitivity and overfitting. The reports are in
-  `research/`.
+A tick exits non-zero after three consecutive data failures or on a state or
+configuration error, so a failed workflow e-mail reaches you.
 
 ## Configuration
 
-`config/paper.toml` (all keys and defaults: `src/tradebot/config.py`):
+`config/paper.toml` documents every key inline. The ones that matter:
 
-| Section | Key | Default | Meaning |
-|---|---|---|---|
-| `run` | `initial_cash` | 10000 | Paper USDT |
-| `run` | `duration_days` | 30 | Campaign length |
-| `run` | `end_action` | flatten | `flatten` sells to USDT at the end; `hold` keeps the position |
-| `run` | `instrument` | hybrid | `spot`, `perp` or `hybrid` (longs on spot, shorts on perps) |
-| `costs` | `fee_rate` / `perp_fee_rate` / `slippage_bps` | 0.001 / 0.0005 / 3 | Spot fee, perpetual fee, slippage |
-| `risk` | `max_short` | 1.0 | Largest short exposure (0 = long-only) |
-| `risk` | `circuit_breaker_dd` / `circuit_breaker_hours` | 0.10 / 48 | Drawdown pause |
-| `risk` | `campaign_stop_loss` | 0.15 | Hard stop below initial capital |
-| `risk` | `min_rebalance` | 0.10 | Fee-saving rebalance band |
-| `data` | `providers` | binance_vision, okx, kucoin, gate, coinbase | Priority order |
-| `strategy` | `name` / `params` | see file | Strategy and parameters |
+| Key | Default | Meaning |
+|---|---|---|
+| `run.initial_equity` | 100 | Paper deposit in USDT (minimum 100) |
+| `strategy.target_vol` | 0.015 | Portfolio daily volatility target: the risk dial |
+| `strategy.short_scale` | 0.5 | Size of shorts relative to longs (0 = long only) |
+| `universe.size` | 20 | Number of perpetuals traded (must equal `strategy.universe_n`) |
+| `risk.max_gross` / `max_weight` | 3.0 / 0.6 | Exposure caps |
+| `risk.daily_target` / `target_mode` | 0.02 / `off` | The measured target; `flatten` or `trail` would bank it |
+| `risk.daily_loss_limit` | 0.03 | Daily stop |
+| `risk.dd_soft` / `dd_hard` / `min_risk_mult` | 0.15 / 0.35 / 0.5 | Drawdown scaling |
+| `risk.kill_dd` | 0.40 | Kill switch |
+| `costs.*` | 5 bps fee, 3 bps slippage | Paper and backtest cost model |
+| `data.sources` | okx, gate | Venue traded, then fallback / cross-check |
 
-A running campaign refuses to continue if the strategy, costs or risk settings
-change (its results would mix two configurations). Run `tradebot reset` to
-start a new campaign, or use `--accept-config-change` to continue deliberately.
-Capital, duration, symbol and timeframe can never change mid-run.
+A running account refuses to continue if strategy, risk, cost or universe
+settings change, because its record would mix two configurations. Start a
+new run with `compounder reset --yes`, or continue deliberately with
+`compounder tick --accept-config-change`.
 
 ## Layout
 
 ```
-src/tradebot/
-  engine.py        event-driven engine: fills, fees, stops, circuit breaker, campaign end
-  forward.py       idempotent live tick + daemon
-  backtest.py      continuous backtest and rolling 30-day campaign simulator
-  research.py      periods, score, causality/window checks
-  strategies/      buy_hold, trend, breakout, meanrev, regime, blend, ls_* (long/short)
-  data/            candle schema, causal resampling, live providers, archive downloader
-  state.py         atomic JSON state + append-only CSV ledgers + file lock
-  report.py        STATUS.md, equity.svg, dashboard.html, summary.json
-  notify.py        ntfy / Discord / Slack / Telegram
-  simulate.py      historical replay through the live tick
-scripts/           selection and holdout scripts used for the research
-research/          per-family research reports, audits and the final results
-tests/             unit, parity and failure-mode tests (pytest -m "not network")
+src/compounder/
+  engine.py        fills, fees, funding, stops, liquidation, risk governor (one code path for all modes)
+  strategy.py      target weights: trend + cross-sectional momentum, volatility-scaled
+  signals.py       causal rolling-window building blocks
+  backtest.py      full-engine backtest and the fast linear approximation used in research
+  forward.py       idempotent tick, universe refresh, catch-up, daemon
+  broker.py        live execution through ccxt, with interlocks
+  data/            verified archive downloader, point-in-time ranking, OKX and Gate adapters
+  state.py, report.py, notify.py, config.py, cli.py, metrics.py
+config/            paper (default), aggressive, spot, live template
+research/          protocol, candidates, selection and results, with raw JSON
+scripts/           the research scripts that produced them
+tests/             engine accounting, look-ahead, forward/backtest parity, broker, data, CLI
 ```
-
-## Going live later (not implemented)
-
-Live trading would need: a broker adapter that places and reconciles real
-orders (partial fills, rejects, exchange filters), secure key handling, a
-venue the operator is legally allowed to use (`api.binance.com` is
-geo-restricted in the US), and a paper-versus-live reconciliation period. The
-engine's single code path is the foundation for that, but none of it exists
-yet, by design.
 
 ## Tests
 
 ```bash
 pip install -e ".[dev]"
 pytest -m "not network"      # offline suite
-pytest -m network            # live data smoke test
+pytest -m network            # live exchange smoke tests
 ```
+
+The suite includes a parity test: hourly ticks through the forward runner
+against a simulated exchange reproduce the backtest's equity to nine
+significant figures.

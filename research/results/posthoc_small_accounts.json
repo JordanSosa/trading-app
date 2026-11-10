@@ -1,0 +1,149 @@
+{
+  "note": "Run AFTER the holdout was seen. A diagnostic of the minimum-position assumption for small accounts, not evidence for any choice.",
+  "runs": {
+    "100 USDT, minimum position 10 USDT, dev": {
+      "avg_gross": 0.6101197678671106,
+      "avg_risk_mult": 0.9938234275846932,
+      "cagr": 0.7709317577395018,
+      "compound_daily": 0.0015669958401435598,
+      "engine_max_drawdown": 0.2427734687806713,
+      "killed": false,
+      "pct_days_at_target": 0.10368663594470046,
+      "sharpe": 1.9876655600692879,
+      "total_return": 14.152653259890911,
+      "trades": 37235
+    },
+    "100 USDT, minimum position 10 USDT, holdout": {
+      "avg_gross": 0.5241265779184265,
+      "avg_risk_mult": 0.7234562199187029,
+      "cagr": 0.03153226809379506,
+      "compound_daily": 8.505933166575688e-05,
+      "engine_max_drawdown": 0.3980448231680984,
+      "killed": false,
+      "pct_days_at_target": 0.07772795216741404,
+      "sharpe": 0.2534617921100878,
+      "total_return": 0.05855235607159348,
+      "trades": 2514
+    },
+    "100 USDT, minimum position 2 USDT, dev": {
+      "avg_gross": 0.6098087134810227,
+      "avg_risk_mult": 0.9962955602083846,
+      "cagr": 0.5652807486344555,
+      "compound_daily": 0.0012283296701087634,
+      "engine_max_drawdown": 0.21257072685474065,
+      "killed": false,
+      "pct_days_at_target": 0.07949308755760369,
+      "sharpe": 1.7560846999290511,
+      "total_return": 7.423890243838837,
+      "trades": 65953
+    },
+    "100 USDT, minimum position 2 USDT, holdout": {
+      "avg_gross": 0.6416826239149812,
+      "avg_risk_mult": 0.901534632885089,
+      "cagr": 0.057271722902033195,
+      "compound_daily": 0.00015259176085106462,
+      "engine_max_drawdown": 0.29669445207836986,
+      "killed": false,
+      "pct_days_at_target": 0.07623318385650224,
+      "sharpe": 0.3322657746195461,
+      "total_return": 0.10746774706203222,
+      "trades": 12034
+    },
+    "100 USDT, minimum position 5 USDT, dev": {
+      "avg_gross": 0.6103961641824788,
+      "avg_risk_mult": 0.9942311354809017,
+      "cagr": 0.6758767007596795,
+      "compound_daily": 0.0014156214084238893,
+      "engine_max_drawdown": 0.24070641960739425,
+      "killed": false,
+      "pct_days_at_target": 0.08986175115207373,
+      "sharpe": 1.9034243788582936,
+      "total_return": 10.655532346320864,
+      "trades": 48549
+    },
+    "100 USDT, minimum position 5 USDT, holdout": {
+      "avg_gross": 0.608217489733523,
+      "avg_risk_mult": 0.8414760340142047,
+      "cagr": -0.0032770868545229925,
+      "compound_daily": -8.993023298860757e-06,
+      "engine_max_drawdown": 0.3606141207942699,
+      "killed": false,
+      "pct_days_at_target": 0.08520179372197309,
+      "sharpe": 0.15009888085796858,
+      "total_return": -0.005998297588703183,
+      "trades": 5442
+    },
+    "300 USDT, minimum position 10 USDT, dev": {
+      "avg_gross": 0.6086547578698183,
+      "avg_risk_mult": 0.9941921896996216,
+      "cagr": 0.6148192420975664,
+      "compound_daily": 0.0013138020800849098,
+      "engine_max_drawdown": 0.2265447481129257,
+      "killed": false,
+      "pct_days_at_target": 0.08870967741935484,
+      "sharpe": 1.8181960594820035,
+      "total_return": 8.769482419140216,
+      "trades": 55119
+    },
+    "300 USDT, minimum position 10 USDT, holdout": {
+      "avg_gross": 0.6633265297879425,
+      "avg_risk_mult": 0.9196089896394576,
+      "cagr": 0.1453669080281894,
+      "compound_daily": 0.00037191854008496855,
+      "engine_max_drawdown": 0.28793822632145927,
+      "killed": false,
+      "pct_days_at_target": 0.09566517189835576,
+      "sharpe": 0.5704817425218123,
+      "total_return": 0.28244350397169526,
+      "trades": 8572
+    },
+    "300 USDT, minimum position 2 USDT, dev": {
+      "avg_gross": 0.6113513181467537,
+      "avg_risk_mult": 0.9973413430102556,
+      "cagr": 0.5526873127813487,
+      "compound_daily": 0.0012061711685408935,
+      "engine_max_drawdown": 0.20809546786242694,
+      "killed": false,
+      "pct_days_at_target": 0.07891705069124424,
+      "sharpe": 1.7615070147007714,
+      "total_return": 7.106379581018139,
+      "trades": 90892
+    },
+    "300 USDT, minimum position 2 USDT, holdout": {
+      "avg_gross": 0.7079433900494307,
+      "avg_risk_mult": 0.9858212786220566,
+      "cagr": 0.2622149613866034,
+      "compound_daily": 0.000638198311301731,
+      "engine_max_drawdown": 0.24134761162972185,
+      "killed": false,
+      "pct_days_at_target": 0.08370702541106129,
+      "sharpe": 0.9093474257167893,
+      "total_return": 0.532374491084739,
+      "trades": 26210
+    },
+    "300 USDT, minimum position 5 USDT, dev": {
+      "avg_gross": 0.6113391549120333,
+      "avg_risk_mult": 0.9965613046721717,
+      "cagr": 0.5606358793545643,
+      "compound_daily": 0.0012201776560912094,
+      "engine_max_drawdown": 0.2128663342296282,
+      "killed": false,
+      "pct_days_at_target": 0.08237327188940093,
+      "sharpe": 1.750495703003111,
+      "total_return": 7.305659531959037,
+      "trades": 70635
+    },
+    "300 USDT, minimum position 5 USDT, holdout": {
+      "avg_gross": 0.6819144256952686,
+      "avg_risk_mult": 0.9497280038891577,
+      "cagr": 0.14645391397092267,
+      "compound_daily": 0.0003745184031714722,
+      "engine_max_drawdown": 0.2710142453637173,
+      "killed": false,
+      "pct_days_at_target": 0.07922272047832586,
+      "sharpe": 0.5921975627724735,
+      "total_return": 0.2846751760562969,
+      "trades": 14696
+    }
+  }
+}
