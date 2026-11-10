@@ -158,7 +158,8 @@ Block bootstrap (10-day blocks, 4,000 paths) of the daily returns:
 If the out-of-sample edge persists, a year at the default setting is most
 likely to end between -31% and +123%, with about a one-in-three chance of a
 loss and a 20% drawdown more likely than not. If the edge has gone, the
-distribution centres on the cost drag, a few percent a year below zero.
+distribution centres on the cost drag: fees and slippage on 0.37x of equity
+traded per day, about 11% of the account a year.
 
 ## 5. Account size
 
@@ -368,7 +369,225 @@ better formula: it averages five horizons instead of committing to one,
 sizes in proportion to the signal instead of all-in and all-out, and adds a
 cross-sectional sleeve.
 
-## 9. Bottom line
+## 9. Would a bot that keeps re-tuning itself on its own results do better?
+
+The idea: let the bot trade faster, audit its own results as they come in
+and keep moving to whatever has been working, so that it evolves on real
+results instead of on a backtest. It was simulated walk-forward
+(`scripts/research_evolving.py`, `results/evolving.json`). The evolving bot
+holds a pool of candidate strategies; at each review it scores every
+candidate on its own after-cost results over a look-back window and moves
+its capital to the winners. Every review uses only results that were
+already in (the script's `--check` tests that on perturbed data), so each
+path is out of sample for the procedure. This was run after the holdout had
+been seen; every policy is reported and none is selected.
+
+* **Three pools of candidates.** *Rules*: the eleven textbook rules of
+  section 8 on 1-hour, 4-hour and daily bars (33 candidates): a bot that
+  has to find its strategy by evolving. The 1-hour versions act on every
+  signal at once, which is the day-trading speed. *Rules and the bot's
+  parts*: the same plus the bot's trend sleeve, its cross-sectional sleeve
+  and the bot itself (36). Those three come out of this project's research
+  and one of them was already known to have won the holdout (section 3), so
+  this pool is flattered by hindsight. *Settings*: sixteen settings of the
+  bot itself, four sets of trend horizons by four cross-sectional
+  lookbacks, the frozen default among them: the bot refining its own
+  parameters.
+* **Eighteen ways of evolving per pool.** It judges on the last 7, 30, 90,
+  180 or 365 days or on everything since April 2020; reviews daily, weekly
+  or monthly; and holds the best candidate, the best three, or every
+  candidate whose record over the look-back is positive.
+* **Two measurements.** The fast linear backtest of the combined positions,
+  so that switching is paid for like any other trade, and the app's own
+  engine from 1,000 USDT with stops, minimum order sizes and the 40% kill
+  switch. Evaluation runs from 2021-04-01, when every policy has a year of
+  results behind it, to 2026-10-31.
+
+### Day-trading speed
+
+Sharpe ratio on the fast backtest, 2021-04 to 2026-10. "Traded per day" is
+in multiples of the account.
+
+| Rule (textbook settings) | Hourly bars, before costs | Hourly bars, after costs | Traded per day | 4-hour bars, after costs | Daily bars, after costs |
+|---|---:|---:|---:|---:|---:|
+| SMA 50/200 crossover | +1.45 | +0.79 | 0.7x | +0.87 | -0.19 |
+| MACD (12, 26, 9) | +0.56 | -5.88 | 7.1x | -0.65 | +0.73 |
+| Donchian 20/10 breakout | +0.24 | -1.94 | 2.3x | +0.41 | +0.51 |
+| Supertrend (10, 3) | +0.57 | -1.46 | 2.2x | +0.13 | +0.76 |
+| Ichimoku cloud (9, 26, 52) | +1.31 | -2.82 | 4.7x | +0.98 | +0.64 |
+| RSI(14) above / below 50 | +0.93 | -7.65 | 10.0x | +0.32 | +0.69 |
+| Bollinger (20, 2) breakout | +0.89 | -1.98 | 2.9x | +0.32 | +0.71 |
+| Vote of the first five | +1.04 | -1.63 | 2.7x | +0.65 | +0.63 |
+| RSI(14) 30 / 70 (reversal) | -1.06 | -2.24 | 1.0x | -1.31 | -0.74 |
+| Bollinger (20, 2) fade (reversal) | -1.10 | -4.02 | 2.7x | -1.51 | -1.17 |
+| Stochastic (14, 3) 20 / 80 (reversal) | -1.25 | -4.99 | 3.4x | -1.43 | -1.19 |
+| The bot, for scale | +1.64 | +1.30 | 0.3x | | |
+
+* **At day-trading speed the edge is there before costs and gone after
+  them.** Eight of the eleven rules have a raw edge on hourly bars, about
+  as large as on slower bars. Ten of the eleven lose after costs, and each
+  of those ten lost at least 95% of the account over the period (the fast
+  backtest has no kill switch). MACD on hourly bars earns 0.03% a day
+  before costs and pays 0.56% a day to trade seven times the account.
+* **The one hourly rule that survives is not day trading.** The 50/200-hour
+  moving-average crossover is a two-day against eight-day trend rule that
+  trades 0.7x a day: the bot's own kind of signal.
+* **Slower is not a different strategy, it is the same one at a price that
+  can be paid.** On 4-hour and on daily bars seven of the eleven rules made
+  money after costs.
+
+### The evolving bot against leaving it alone
+
+Each cell is best one / best three / all in profit. † = the 40% kill
+switch ended the run.
+
+Sharpe ratio, fast backtest, 2021-04 to 2026-10:
+
+| Judges on, reviews | Rules | Rules and the bot's parts | The bot's settings |
+|---|---:|---:|---:|
+| the last 7 days, daily | -1.65 / -1.31 / -0.92 | -1.52 / -1.20 / -0.62 | +0.56 / +0.72 / +0.75 |
+| the last 30 days, weekly | -0.26 / -0.27 / -0.52 | -0.22 / -0.09 / -0.12 | +0.76 / +0.94 / +0.93 |
+| the last 90 days, monthly | -0.15 / -0.23 / +0.25 | -0.05 / -0.05 / +0.59 | +0.89 / +0.93 / +1.13 |
+| the last 180 days, monthly | -0.13 / -0.21 / +0.35 | +0.30 / +0.11 / +0.75 | +1.13 / +1.12 / +1.15 |
+| the last 365 days, monthly | +0.31 / +0.32 / +0.77 | +1.31 / +0.99 / +1.12 | +1.04 / +1.19 / +1.18 |
+| everything so far, monthly | +0.63 / +0.72 / +0.99 | +1.45 / +1.46 / +1.17 | +1.10 / +1.15 / +1.16 |
+| Whole pool in equal parts, never changed | -0.71 | -0.03 | +1.16 |
+| **The frozen bot** | **+1.30** | | |
+
+What 1,000 USDT became in the app's engine, 2021-04-01 to 2026-10-31. The
+frozen bot's own figure is flattered: it was tuned on the data up to 2024.
+
+| Judges on, reviews | Rules | Rules and the bot's parts | The bot's settings |
+|---|---:|---:|---:|
+| the last 7 days, daily | 646† / 633† / 704† | 632† / 632† / 712† | 1,060† / 2,193 / 1,762 |
+| the last 30 days, weekly | 624† / 641† / 653† | 620† / 658† / 689 | 1,604 / 2,476 / 2,152 |
+| the last 90 days, monthly | 668† / 668† / 966 | 666† / 684† / 1,477 | 2,554 / 2,821 / 3,302 |
+| the last 180 days, monthly | 882† / 917† / 987 | 1,054† / 851 / 1,617 | 4,203 / 3,704 / 3,731 |
+| the last 365 days, monthly | 1,087† / 1,093† / 1,598 | 5,330 / 2,710 / 2,649 | 3,765 / 4,384 / 4,254 |
+| everything so far, monthly | 1,911 / 1,502 / 2,099 | 6,867 / 4,933 / 2,628 | 4,411 / 4,175 / 3,937 |
+| Whole pool in equal parts, never changed | 718 | 883 | 3,937 |
+| **The frozen bot** | **5,352** | | |
+
+What 1,000 USDT became from 2025-01-01 to 2026-10-31, the 22 months that
+nothing here was tuned on:
+
+| Judges on, reviews | Rules | Rules and the bot's parts | The bot's settings |
+|---|---:|---:|---:|
+| the last 7 days, daily | 610† / 618† / 602† | 610† / 617† / 602† | 792 / 1,155 / 986 |
+| the last 30 days, weekly | 773 / 933 / 708 | 836 / 956 / 923 | 1,409 / 1,266 / 1,050 |
+| the last 90 days, monthly | 718 / 718 / 696 | 716† / 651† / 783 | 934 / 1,034 / 1,128 |
+| the last 180 days, monthly | 1,026 / 726 / 887 | 839 / 795 / 952 | 1,544 / 1,146 / 1,166 |
+| the last 365 days, monthly | 1,014 / 850 / 1,095 | 1,900 / 1,304 / 1,267 | 1,162 / 1,261 / 1,249 |
+| everything so far, monthly | 1,536 / 1,151 / 1,325 | 2,400 / 1,948 / 1,552 | 1,034 / 1,471 / 1,204 |
+| Whole pool in equal parts, never changed | 715 | 768 | 1,204 |
+| **The frozen bot** | **1,264** | | |
+
+* **The faster it adapts, the worse it does**, in all three pools and on
+  both measurements. Judging on the last week and reviewing daily, the kill
+  switch ended seven of the nine runs from 2021 and six of the nine from
+  2025, the first after nine months.
+* **Nothing that judged on six months or less beat leaving the strategy
+  alone.** Of those 36 variants none finished ahead of the frozen bot over
+  the 5.6 years and 19 were stopped by the kill switch on the way. Over the
+  22 months from 2025, three of the 36 finished ahead and eight were
+  stopped.
+* **The winner's record is mostly luck, and the shorter the record the
+  more of it is luck.** In the rules pool the strategy chosen on seven days
+  had a record that looked like a Sharpe ratio of 13 when it was chosen;
+  the policy then made -1.65. On 30 days: 5.1, then -0.26. On a year: 1.6,
+  then +0.31.
+* **What the results can teach is what always loses, and that takes a year
+  or more.** The rank correlation between how the candidates did in one
+  window and in the next:
+
+  | Window | All 33 rules | The 16 continuation rules on 4-hour and daily bars | The 16 settings of the bot |
+  |---|---:|---:|---:|
+  | 7 days (290 pairs) | +0.06 | +0.02 | +0.03 |
+  | 30 days (67) | +0.21 | -0.05 | +0.03 |
+  | 90 days (21) | +0.47 | +0.05 | +0.02 |
+  | 180 days (10) | +0.56 | -0.05 | +0.10 |
+  | 365 days (4) | +0.66 | -0.10 | +0.14 |
+
+  Across all the rules the ranking persists over long windows because the
+  day-trading and the reversal versions are at the bottom every time: the
+  persistent thing is the cost of trading, not a signal. Among the
+  candidates worth choosing between, it does not persist at any horizon:
+  the best of one window ranks in the middle of the next.
+* **Refining its own parameters did nothing useful.** Every evolving
+  variant of the settings pool finished behind the frozen default over the
+  whole period, where the default is flattered. From 2025, where nothing
+  is, the 18 variants ended between 792 and 1,544 around the 1,204 of
+  holding all sixteen settings unchanged and the frozen default's 1,264:
+  four ahead, fourteen behind, in no order except that the fastest is last.
+* **The slowest version holds its own, and it is barely evolving.**
+  Judging on everything so far, reviewed monthly, was never stopped and
+  finished ahead of the frozen bot from 2025 in six of nine runs. It
+  changed its leader at 12% to 19% of reviews. That is choosing by the long
+  record and seldom changing, which is how the frozen strategy was chosen
+  in the first place; and no paper run would move it for years.
+* **Where it did clearly better, it is the same single fact as in section
+  3.** With the bot's own parts in the pool, judging on everything so far
+  moved the money from the blend to the cross-sectional sleeve; the
+  best-one version held it for good from January 2024, a year before the
+  holdout began. The three versions made 1,552 to 2,400 from 2025 against
+  the frozen bot's 1,264, with a drawdown of up to 33% against 25%. The
+  sleeve carried the holdout; a procedure that had moved to it shares the
+  credit. One switch in one period is not evidence that the procedure
+  finds winners: in the pool without this project's research in it, the
+  same procedure turned 1,000 into 1,502 to 2,099 over the whole period
+  and into 1,151 to 1,536 from 2025.
+
+### What a paper run can show
+
+The frozen default's out-of-sample days from 1,000 USDT, resampled in
+10-day blocks (20,000 paths). "No edge" is the same days with the average
+gain removed and the trading costs left in: fees and slippage on what the
+bot trades come to 0.031% of the account a day, about 11% a year. (An earlier
+version of section 4 called that drag "a few percent a year".)
+
+| Length of run | Normal if the research holds | Ends at a loss | Normal if the bot has no edge | Ends at a loss | Tells them apart |
+|---|---:|---:|---:|---:|---:|
+| 30 days | -12% to +24% | 53% | -14% to +21% | 63% | 7% |
+| 90 days | -21% to +43% | 47% | -26% to +33% | 62% | 9% |
+| 180 days | -27% to +66% | 42% | -37% to +45% | 64% | 12% |
+| 1 year | -35% to +111% | 37% | -51% to +58% | 68% | 18% |
+| 2 years | -42% to +207% | 32% | -67% to +73% | 74% | 27% |
+
+Ranges are 5th to 95th percentiles and ignore the kill switch. "Tells them
+apart" is how often the run with the edge ends above what 95% of the
+no-edge runs reach.
+
+* **A paper run of a few months cannot referee.** After 90 days a bot with
+  the measured edge and a bot with none produce nearly the same spread of
+  results, and the run separates them 9 times in 100. After a year it is
+  18 in 100.
+* **The measurement is that coarse.** The standard error of an annualised
+  Sharpe ratio measured over 30 days is about 3.5; over a year, about 1.0.
+  The out-of-sample estimate for the bot is 0.57 from 1,000 USDT. A bot
+  that re-tunes itself on a month of results is steering by a number whose
+  noise is six times the thing it is trying to detect.
+* **What a paper run does show is whether the machinery works**: data,
+  fills, stops and fees behaving as the backtest assumes. That is visible
+  within days and worth checking.
+
+### What follows
+
+* **No self-tuning was built.** The strategy stays frozen. The versions
+  that adapt quickly lose, and the one that holds its own changes so
+  seldom that it amounts to the frozen strategy with a review once a year
+  or so.
+* **The self-audit was built.** The status page now sets the run's result
+  beside the range that is normal for its length, with and without an
+  edge, says how much a run that long can show, and flags fees running at
+  more than twice the research rate (`src/compounder/audit.py`). It reads
+  the results; it never changes the strategy.
+* **One hypothesis is carried forward and not acted on**: that the
+  cross-sectional sleeve alone is the better strategy. It won the holdout
+  and the slow selector preferred it on the data before the holdout.
+  Adopting it now would be choosing the holdout's winner. It needs data
+  that does not exist yet.
+
+## 10. Bottom line
 
 A daily target of 2% compounding is 1,377x a year. On the evidence here a
 robust, risk-governed strategy on liquid crypto perpetuals compounds at
@@ -377,6 +596,12 @@ the most the risk dial could do in-sample), with drawdowns of 20-25% at
 that setting. Raising the risk to chase the target lowered the out-of-sample
 result and, from a 4% volatility target, ended the run at the kill switch.
 Closing out each day at +2% turned the out-of-sample gain into a loss.
+Trading faster did not help: at day-trading speed ten of eleven textbook
+rules lost 95% or more to costs. Nor did letting the bot re-tune itself on
+its own results: of the 36 versions that judged on six months or less, none
+beat leaving the strategy alone over the 5.6 years tested and three did
+over the last 22 months, and the faster it adapted the worse it did.
 
 The app therefore measures every day against the 2% target and reports it,
-sizes for a 1.5% daily swing, and never trades to hit the number.
+sizes for a 1.5% daily swing, never trades to hit the number, and audits
+its own results without acting on them.
