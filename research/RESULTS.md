@@ -264,6 +264,57 @@ first day of each period and held, without costs
   in 22 months, about 0.35 USDT a day, in 20,550 fills that cost 128 USDT
   in fees. A 2% a day target would be 20 USDT on the first day.
 
+### Does anything here beat Bitcoin both when it rises and when it falls?
+
+No. The table sets the bot beside four alternatives, from 1,000 USDT. The
+last four columns are arithmetic added after the holdout had been seen;
+nothing was selected on them, and the in-sample rows are tuned for every
+column that contains the bot.
+
+| | BTC held | Bot | Bot at twice the risk | Same trend rules on BTC alone | Half BTC, half bot | BTC held, bot on top |
+|---|---:|---:|---:|---:|---:|---:|
+| 2020 (April to December) | +352% | +89% | +186% | +108% | +199% | +694% |
+| 2021 | +60% | +52% | +104% | 0% | +69% | +133% |
+| 2022 | -64% | +21% | +28% | -4% | -29% | -55% |
+| 2023 | +156% | +87% | +154% | +102% | +124% | +360% |
+| 2024 | +121% | +23% | +39% | +36% | +71% | +164% |
+| **In-sample: 1,000 became** | 14,601 | 8,000 | 26,504 | 5,541 | 13,651 | 101,203 |
+| 2025 | -6% | -12% | -34% | -25% | -6% | -17% |
+| 2026 (January to October) | -12% | +43% | 0% (kill switch) | +37% | +16% | +26% |
+| **Out-of-sample: 1,000 became** | 829 | 1,264 | 658 | 1,035 | 1,091 | 1,052 |
+| Maximum drawdown, in / out | 77% / 53% | 21% / 25% | 32% / 40% | 27% / 29% | 41% / 29% | 69% / 51% |
+
+"Same trend rules on BTC alone" is long when Bitcoin trends up and short
+when it trends down, at a 3% daily volatility target. "BTC held, bot on
+top" is one unit of Bitcoin plus the bot on the same equity: about 1.7x
+exposure, on margin. Drawdowns in the last two columns are on daily closes.
+
+* **Bitcoin's gains arrive on a handful of days.** Without its best 17 days
+  of 2020-2024 (1% of them) it made +124% instead of +1,360%; without its
+  best 87 days it lost 98%. On those 17 days it averaged +11.7% and the bot
+  +0.6%. A strategy that is ever flat or short, which it must be to do
+  anything useful in a fall, is partly out on those days. Beating a rally
+  means already holding the thing.
+* **In falling months the bot is flat, not profitable.** In months when
+  Bitcoin fell it averaged -0.3% in-sample and -1.1% out of sample, against
+  -11.6% and -9.7%, and made money in fewer than half of them. In rising
+  months it made +7.0% and +4.3% against +18.9% and +9.3%. It wins the bad
+  months by not losing them.
+* **More risk does not close the gap.** At twice the risk the bot beat
+  Bitcoin over the tuned period and in three of its five years, then hit
+  the kill switch out of sample and ended 34% down, behind Bitcoin in a
+  falling market.
+* **Timing Bitcoin directly is worse than either.** The same rules on
+  Bitcoin alone lagged in every rising year and lost in 2022 and 2025.
+* **The only column ahead in every rising year is the one that owns
+  Bitcoin.** Holding it and running the bot on top beats Bitcoin by
+  whatever the bot makes, whichever way the market goes, and loses with it
+  when it falls (-55% in 2022, behind Bitcoin in 2025) with a
+  Bitcoin-sized drawdown and borrowed exposure. It is a portfolio choice,
+  not a strategy, and it is not built.
+* **There is no rising year in the holdout.** How any of this behaves in a
+  rally it has not been tuned on is untested.
+
 ## 8. Bottom line
 
 A daily target of 2% compounding is 1,377x a year. On the evidence here a
