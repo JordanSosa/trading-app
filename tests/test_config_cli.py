@@ -162,3 +162,9 @@ def test_live_mode_requires_the_explicit_flag(tmp_path, capsys):
     cfg.write_text(f'[run]\nmode = "live"\nstate_dir = "{tmp_path / "s"}"\n')
     assert cli.main(["tick", "--config", str(cfg)]) == 1
     assert "--i-understand-live-trading" in capsys.readouterr().err
+
+
+def test_default_paper_deposit_is_one_thousand_and_the_minimum_is_one_hundred():
+    assert load_config(None).run.initial_equity == 1000.0
+    assert load_config(ROOT / "config" / "paper.toml").run.initial_equity == 1000.0
+    assert config_from_dict({"run": {"initial_equity": 100}}).run.initial_equity == 100.0

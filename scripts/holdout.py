@@ -26,8 +26,33 @@ KEEP = ("days", "compound_daily", "mean_daily", "total_return", "cagr", "sharpe"
         "final_equity", "by_year", "by_month", "longest_drawdown_days", "avg_risk_mult")
 
 
+def btc_buy_and_hold(panel, lo: str, hi: str) -> dict:
+    """Context only: BTC bought at the first bar's open and held to the last close, no costs.
+
+    Statistics are on UTC-day returns, the first day running from that first open.
+    """
+    j = panel.index_of("BTCUSDT")
+    sel = (panel.times >= ms(lo)) & (panel.times < ms(hi))
+    close_ms = panel.times[sel] + panel.interval_ms
+    close = panel.close[sel, j]
+    at_midnight = np.nonzero(close_ms % 86_400_000 == 0)[0]
+    px = np.concatenate([[panel.open[sel, j][0]], close[at_midnight]])
+    bh = daily_stats(px[1:] / px[:-1] - 1.0)
+    return {k: bh[k] for k in ("total_return", "cagr", "compound_daily", "sharpe", "daily_vol", "max_drawdown",
+                               "worst_day", "pct_days_at_target")}
+
+
 def main() -> int:
     period = sys.argv[1] if len(sys.argv) > 1 else "holdout"
+    if "--benchmark-only" in sys.argv:
+        # Recompute only the BTC context block of an existing result file; no strategy run.
+        path = ROOT / "research" / "results" / f"{period}.json"
+        import json
+        out = json.loads(path.read_text())
+        out["btc_buy_and_hold"] = btc_buy_and_hold(load_panel(), *PERIODS[period])
+        dump(path, out)
+        print(period, out["btc_buy_and_hold"])
+        return 0
     cfg = load_config(ROOT / "config" / "paper.toml")
     spot = load_config(ROOT / "config" / "spot.toml")
     panel = load_panel()
@@ -72,15 +97,8 @@ def main() -> int:
     sp = compute_targets(panel, spot.strategy)
     run("spot preset (long or flat, no leverage)", sp.weights, sp.stop_frac, spot.engine_params())
 
-    # Context: buy and hold BTC over the same window (close to close, no costs).
-    j = panel.index_of("BTCUSDT")
-    sel = (panel.times >= ms(lo)) & (panel.times < ms(hi))
-    c = panel.close[sel, j]
-    day_idx = np.nonzero((panel.times[sel] + panel.interval_ms) % 86_400_000 == 0)[0]
-    daily = c[day_idx][1:] / c[day_idx][:-1] - 1.0
-    bh = daily_stats(daily)
-    out["btc_buy_and_hold"] = {k: bh[k] for k in ("total_return", "cagr", "compound_daily", "sharpe", "daily_vol",
-                                                  "max_drawdown", "worst_day", "pct_days_at_target")}
+    bh = btc_buy_and_hold(panel, lo, hi)
+    out["btc_buy_and_hold"] = bh
     print(f"BTC buy and hold: total {bh['total_return']:+.1%}, max drawdown {bh['max_drawdown']:.1%}, "
           f"compound/d {bh['compound_daily']:+.3%}")
     dump(ROOT / "research" / "results" / f"{period}.json", out)

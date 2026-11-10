@@ -40,7 +40,7 @@ class ConfigError(ValueError):
 class RunConfig:
     mode: str = "paper"              # "paper": simulated fills on live data; "live": real orders (opt-in)
     timeframe: str = "1h"
-    initial_equity: float = 100.0    # paper deposit in USDT (live runs use the account's own equity)
+    initial_equity: float = 1000.0   # paper deposit in USDT, minimum 100 (live runs use the account's own equity)
     state_dir: str = "state"
 
     @property

@@ -29,13 +29,13 @@ result: the number to hold against a 2% a day target.
 | **From 100 USDT** | | |
 | Compound per day, max drawdown | +0.157%, 24.3% | +0.009%, 39.8% |
 | Total | +1,415% | +5.9% |
-| **BTC buy and hold, for scale** | +0.153% a day, 76.7% drawdown | -0.030% a day (-18.0%), 53.0% drawdown |
+| **BTC buy and hold, for scale** | +0.155% a day, 76.7% drawdown | -0.028% a day (-17.1%), 53.0% drawdown |
 
 Against the brief:
 
 * **The target is 2% a day. Out of sample the strategy made 0.05% a day**:
   one fortieth of the target, about +20% a year, in a period when Bitcoin
-  lost 18%.
+  lost 17%.
 * **A day at or above +2% happens about one day in thirteen**, in both
   periods. It is what a good day looks like at this risk level, not the
   normal day.
@@ -229,7 +229,42 @@ three. Nothing was changed because of this table.
   longer than the stops can cover, liquidity at sizes far above the tested
   10,000 USDT, taxes.
 
-## 7. Bottom line
+## 7. Against simply holding Bitcoin
+
+The frozen default from 1,000 USDT beside 1,000 USDT of BTC bought on the
+first day of each period and held, without costs
+(`scripts/vs_bitcoin.py`, `results/vs_bitcoin.json`).
+
+| | Bot, default, from 1,000 USDT | BTC bought and held |
+|---|---:|---:|
+| 2020 (April to December) | +89% | +352% |
+| 2021 | +52% | +60% |
+| 2022 | +21% | -64% |
+| 2023 | +87% | +156% |
+| 2024 | +23% | +121% |
+| **In-sample: 1,000 USDT became** | **8,000** | **14,601** |
+| Maximum drawdown / worst day | 20.9% / -5.6% | 76.7% / -15.4% |
+| 2025 | -12% | -6% |
+| 2026 (January to October) | +43% | -12% |
+| **Out-of-sample: 1,000 USDT became** | **1,264** | **829** |
+| Maximum drawdown / worst day | 25.4% / -5.3% | 53.0% / -14.0% |
+| Sharpe ratio, in-sample / out-of-sample | 1.74 / 0.57 | 1.22 / -0.02 |
+
+* **When Bitcoin rises, holding it wins, by a wide margin.** It beat the bot
+  in every rising year, and that is with the bot's in-sample column tuned
+  on those same years.
+* **When Bitcoin falls or drifts, the bot wins**: 2022, and the 22 months
+  of the holdout taken together. Not every such year: in 2025 the bot lost
+  more than Bitcoin did.
+* **They are different bets.** The bot's daily returns had a correlation
+  of +0.18 with Bitcoin's in-sample and 0.00 out of sample. Holding needs
+  Bitcoin to go up; the bot needs trend and momentum to keep paying more
+  than they cost. The bot's drawdowns were about a third the size.
+* **In money, at this size:** out of sample the bot made 264 USDT on 1,000
+  in 22 months, about 0.35 USDT a day, in 20,550 fills that cost 128 USDT
+  in fees. A 2% a day target would be 20 USDT on the first day.
+
+## 8. Bottom line
 
 A daily target of 2% compounding is 1,377x a year. On the evidence here a
 robust, risk-governed strategy on liquid crypto perpetuals compounds at

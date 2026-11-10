@@ -7,7 +7,7 @@
 [run]
 mode = "paper"              # "paper" or "live" (live needs API keys and an explicit flag)
 timeframe = "1h"
-initial_equity = 100.0      # paper deposit in USDT; the minimum is 100
+initial_equity = 1000.0     # paper deposit in USDT (minimum 100; under about 1,000 the book is a handful of positions)
 state_dir = "state"
 
 [universe]

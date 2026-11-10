@@ -24,7 +24,7 @@ months held back and evaluated once.
 | Worst day | -5.3% | -5.3% |
 | From 1,000 USDT: compound per day, max drawdown | +0.120%, 20.9% | +0.035%, 25.4% |
 | From 100 USDT: compound per day, max drawdown | +0.157%, 24.3% | +0.009%, 39.8% |
-| BTC buy and hold, for scale | +0.153% a day, 76.7% drawdown | -0.030% a day (-18.0%), 53.0% drawdown |
+| BTC buy and hold, for scale | +0.155% a day, 76.7% drawdown | -0.028% a day (-17.1%), 53.0% drawdown |
 
 After fees, slippage and funding. The out-of-sample column is the one to
 believe, and it is a single 22-month period in which 2025 lost 5.9% and
@@ -34,7 +34,7 @@ What the evidence says about the target:
 
 * **Out of sample the strategy compounded at 0.05% a day**, one fortieth
   of 2%. That is about +20% a year with a 23% drawdown, in a period when
-  Bitcoin fell 18%.
+  Bitcoin fell 17%.
 * **Turning the risk up does not get there.** In-sample, compound growth
   peaked at 0.19% a day and fell beyond that. Out of sample, doubling the
   default risk cut the result from +39.8% to +10.6% with a 38.7% drawdown,
@@ -157,9 +157,10 @@ compounder status
 compounder serve                  # http://127.0.0.1:8080/
 ```
 
-To paper trade a different deposit, set `run.initial_equity` (100 USDT
-minimum) in `config/paper.toml`. Presets: `config/aggressive.toml` (twice
-the risk) and `config/spot.toml` (long or flat, no leverage).
+The paper run starts with 1,000 USDT. To paper trade a different deposit,
+set `run.initial_equity` (100 USDT minimum) in `config/paper.toml`. Presets:
+`config/aggressive.toml` (twice the risk) and `config/spot.toml` (long or
+flat, no leverage).
 
 A tick is idempotent: it replays every hourly bar that closed since the last
 one (up to a week), so a late or missed run changes nothing, and running it
@@ -250,7 +251,7 @@ configuration error, so a failed workflow e-mail reaches you.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `run.initial_equity` | 100 | Paper deposit in USDT (minimum 100) |
+| `run.initial_equity` | 1000 | Paper deposit in USDT (minimum 100; below about 1,000 the book is a handful of positions) |
 | `strategy.target_vol` | 0.015 | Portfolio daily volatility target: the risk dial |
 | `strategy.short_scale` | 0.5 | Size of shorts relative to longs (0 = long only) |
 | `universe.size` | 20 | Number of perpetuals traded (must equal `strategy.universe_n`) |
