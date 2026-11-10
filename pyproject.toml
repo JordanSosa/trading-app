@@ -26,7 +26,7 @@ compounder = "compounder.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-compounder = ["py.typed"]
+compounder = ["py.typed", "reference.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

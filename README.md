@@ -55,7 +55,8 @@ What the evidence says about the target:
 * **A year from here:** resampling the out-of-sample days gives a median of
   +20%, a range of roughly -31% to +123%, a three-in-ten chance of a losing
   year and a 20% drawdown more likely than not. If the edge has gone, the
-  expected result is the cost drag: a few percent a year below zero.
+  expected result is the cost drag: fees and slippage on what it trades,
+  about 11% of the account a year.
 
 The full record is in [`research/`](research): the protocol written before
 any result existed, the candidates frozen before the validation year, the
@@ -232,7 +233,7 @@ to establish; the spot preset exists for paper and backtest use.
 
 | Where | What |
 |---|---|
-| `STATUS.md` / `README.md` on `paper-state` | Equity, today against the target, days at target, compound daily return achieved, drawdown, positions, last days, events |
+| `STATUS.md` / `README.md` on `paper-state` | Equity, today against the target, days at target, compound daily return achieved, drawdown, the self-audit (below), positions, last days, events |
 | `dashboard.html`, `summary.json` | The same as a web page and as JSON |
 | `trades.csv`, `daily.csv`, `equity.csv`, `events.jsonl` | Append-only ledgers: every fill, every completed day, hourly equity, every alert |
 | Push notifications (optional) | Alerts (loss limit, kill switch, stops, data problems), a daily summary, optionally fills |
@@ -244,6 +245,47 @@ ntfy app; use a long random topic), `COMPOUNDER_DISCORD_WEBHOOK`,
 
 A tick exits non-zero after three consecutive data failures or on a state or
 configuration error, so a failed workflow e-mail reaches you.
+
+### Self-audit: what a run's results can and cannot tell you
+
+The status page judges the run against the research record instead of
+leaving a good or bad month to be read as proof. It shows the result so far
+beside the range that is normal for a run of that length, and a one-line
+reading: too early (under 30 completed days), inside, below or above the
+normal range, and whether the result is beyond what a bot with no edge
+would reach. The ranges come from resampling the strategy's out-of-sample
+days (`src/compounder/reference.json`, from 1,000 USDT); "no edge" is the
+same days with the average gain removed and the trading costs left in.
+
+| Run length | Normal if the research holds | Ends at a loss | Normal if the bot has no edge | Ends at a loss | Chance the run tells them apart |
+|---|---:|---:|---:|---:|---:|
+| 30 days | -12% to +24% | 53% | -14% to +21% | 63% | 7% |
+| 90 days | -21% to +43% | 47% | -26% to +33% | 62% | 9% |
+| 180 days | -27% to +66% | 42% | -37% to +45% | 64% | 12% |
+| 1 year | -35% to +111% | 37% | -51% to +58% | 68% | 18% |
+| 2 years | -42% to +207% | 32% | -67% to +73% | 74% | 27% |
+
+Ranges are 5th to 95th percentiles and ignore the kill switch, which would
+end the worst paths at a 40% drawdown. The last column is how often a run
+with the measured edge ends above what 95% of no-edge runs reach.
+
+* **A few months of paper trading cannot show whether the strategy works.**
+  A bot with the measured edge and a bot with none produce nearly the same
+  spread of results for a long time; after a year the run settles it about
+  one time in five.
+* **What a paper run does show, within days, is whether the plumbing is
+  sound**: data arriving, orders filling, stops resting, fees in line. The
+  audit flags fees running at more than twice the research rate.
+* **It applies to the default configuration only.** A changed strategy,
+  risk or cost setting has no out-of-sample record to be judged against,
+  and the page says so.
+* **The audit reports; it never re-tunes the strategy.** A walk-forward
+  simulation of a bot that moves to whatever its own recent results favour
+  is in [`RESULTS.md`](research/RESULTS.md), section 9. Of the 36 versions
+  that judged on six months of results or less, none beat leaving the
+  strategy alone over the 5.6 years tested, 19 hit the kill switch, and the
+  faster it adapted the worse it did. At day-trading speed ten of eleven
+  textbook rules lost 95% or more of the account to costs.
 
 ## Configuration
 
@@ -279,6 +321,8 @@ src/compounder/
   forward.py       idempotent tick, universe refresh, catch-up, daemon
   broker.py        live execution through ccxt, with interlocks
   data/            verified archive downloader, point-in-time ranking, OKX and Gate adapters
+  audit.py         self-audit: a run's result against the range the research makes normal for its length
+  reference.json   the out-of-sample daily returns the audit resamples (scripts/make_reference.py)
   state.py, report.py, notify.py, config.py, cli.py, metrics.py
 config/            paper (default), aggressive, spot, live template
 research/          protocol, candidates, selection and results, with raw JSON

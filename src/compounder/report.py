@@ -7,6 +7,7 @@ import json
 import math
 from typing import Any
 
+from .audit import audit, audit_markdown
 from .config import Config
 from .state import StateStore, iso
 
@@ -61,7 +62,10 @@ def build_summary(store: StateStore, doc: dict[str, Any], cfg: Config) -> dict[s
     net = sum((p.get("notional") or 0.0) for p in positions.values())
     status = "liquidated" if eng.get("liquidated") else "killed" if eng.get("killed") else \
         "day-stopped" if eng.get("day_stopped") else "day-locked" if eng.get("day_locked") else "running"
+    ends = [x for x in _floats(daily, "end_equity") if math.isfinite(x) and x > 0]
+    mean_equity = (initial + sum(ends)) / (1 + len(ends))
     return {
+        "audit": audit(rets, cfg, fees_paid=float(eng.get("fees_paid") or 0.0), mean_equity=mean_equity),
         "generated_at": doc["updated_at"], "run_id": run["id"], "mode": run.get("mode", "paper"), "status": status,
         "start_time": run["start_time"], "days_elapsed": max(0.0, (now_ms - started) / DAY_MS),
         "initial_equity": initial, "equity": equity, "pnl": equity - initial, "return": equity / initial - 1.0,
@@ -164,6 +168,8 @@ def status_markdown(s: dict[str, Any], store: StateStore) -> str:
         f"| Fills / stops | {s['trades']} / {s['stops']} |",
         f"| Fees / funding paid | {_f(s['fees_paid'])} / {_f(s['funding_paid'])} USDT |", "",
     ]
+    if s.get("audit"):
+        lines += audit_markdown(s["audit"])
     if s["positions"]:
         lines += ["## Open positions", "", "| Symbol | Side | Notional (USDT) | Entry | Price | Stop |",
                   "|---|---|---:|---:|---:|---:|"]
