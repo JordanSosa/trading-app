@@ -84,6 +84,10 @@ def test_execute_reaches_the_target_weights_and_places_stops():
     assert all(o["reduceOnly"] for o in ex.stops)
     assert eng.state.stop_price[0] == pytest.approx(90.0)
     assert any("sent 2 order" in e["message"] for e in events)
+    # Every order sent is in the ledger with its reference price.
+    assert [(t["symbol"], t["side"], t["reason"]) for t in eng.trades] == [
+        ("BUSDT", "sell", "live order"), ("AUSDT", "buy", "live order")]
+    assert eng.trades[1]["notional"] == pytest.approx(300.0, abs=1.0) and eng.state.trade_count == 2
     # A second identical instruction changes nothing and keeps exactly one stop per position.
     set_pending(eng, [0.30, -0.20, 0.0])
     n_orders = len(ex.orders)
@@ -227,3 +231,5 @@ def test_live_ticks_drive_the_exchange_account(tmp_path):
     # Every open position is protected by exactly one resting stop.
     assert sorted(o["symbol"] for o in ex.stops) == sorted(ex.pos)
     assert eng["fees_paid"] == 0.0 and eng["funding_paid"] == 0.0        # the exchange keeps those books
+    ledger = store.read_csv("trades.csv")
+    assert len(ledger) == len(ex.orders) and all(t["reason"].startswith("live order") for t in ledger)

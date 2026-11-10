@@ -256,6 +256,14 @@ class LiveBroker:
                         self._prepare(m["symbol"])
                     self.ex.create_order(m["symbol"], "market", side, amount, None, params)
                     sent += 1
+                    s.trade_count += 1
+                    s.turnover += abs(notional)
+                    # The exchange keeps the real fill; the ledger records what was sent and at
+                    # which reference price, so every live order can be audited afterwards.
+                    eng.trades.append({"ts_ms": self.now_ms, "symbol": sym, "side": side, "qty": amount * size,
+                                       "price": px, "notional": amount * size * px, "fee": 0.0,
+                                       "reason": "live order (reduce-only)" if reduce else "live order",
+                                       "qty_after": float("nan")})
                 except Exception as exc:  # noqa: BLE001 - one failed order must not abort the rest
                     self._event("alert", f"{sym}: {side} order failed: {type(exc).__name__}: {exc}")
         if lv.dry_run:
