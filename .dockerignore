@@ -1,7 +1,7 @@
 .git
 data
 state
-replay-state
+state-*
 **/__pycache__
 .pytest_cache
 .venv

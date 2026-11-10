@@ -1,60 +1,70 @@
-# BTC/USDT paper-trading configuration for the 30-day forward run.
-# Every key is documented in src/tradebot/config.py. Changing strategy, costs or
-# risk settings mid-run is refused (see README: Configuration).
+# compounder: default configuration (paper trading, simulated fills on live market data).
+#
+# This is the configuration frozen in research/SELECTION.md. Every key is documented in
+# src/compounder/config.py. A running account refuses to continue if strategy, risk,
+# cost or universe settings change (see README: Configuration).
 
 [run]
-symbol = "BTCUSDT"
+mode = "paper"              # "paper" or "live" (live needs API keys and an explicit flag)
 timeframe = "1h"
-initial_cash = 10000.0
-duration_days = 30
-end_action = "flatten"      # sell to USDT when the 30 days are up
+initial_equity = 100.0      # paper deposit in USDT; the minimum is 100
 state_dir = "state"
-mode = "paper"              # the only supported mode
-# Longs on spot (no funding), shorts on USDT-margined perpetual futures.
-# Long-only alternative: instrument = "spot", max_short = 0, strategy breakout_dual.
-instrument = "hybrid"
 
-[costs]
-fee_rate = 0.001            # Binance spot taker fee, no BNB discount (long side)
-perp_fee_rate = 0.0005      # Binance USD-M perpetual taker fee (short side)
+[universe]
+size = 20                   # the 20 most liquid crypto perpetuals, re-ranked every Monday 00:00 UTC
+refresh_days = 7
+volume_window_days = 30
+min_history_days = 30
+exclude = []                # base assets never traded, e.g. ["DOGE"]
+
+[costs]                     # used by paper fills and backtests
+fee_rate = 0.0005           # taker fee per side
 slippage_bps = 3.0
-min_notional = 10.0
-qty_step = 0.00001
+stop_slippage_bps = 10.0
+stop_overshoot = 0.25       # share of the move beyond a stop trigger that is given up
+min_notional = 5.0          # smallest order the venue accepts (USDT)
+min_position_mult = 2.0     # positions are at least 2 x min_notional
+maint_margin = 0.025
+liquidation_fee = 0.015
+
+[strategy]
+universe_n = 20
+vol_window = 336            # 14 days of hourly bars
+trend_weight = 1.0
+trend_horizons = [48, 96, 192, 384, 768]    # 2, 4, 8, 16, 32 days
+trend_response = "linear"
+xsmom_weight = 1.0
+xsmom_lookback = 336        # 14 days
+carry_weight = 0.0          # rejected in research
+reversal_weight = 0.0       # rejected in research
+short_scale = 0.5           # shorts at half size
+target_vol = 0.015          # portfolio daily volatility target: THE risk dial (see README)
+vol_mode = "target"
+rho = 0.7
+max_symbol_risk = 0.5
+smooth_bars = 12            # average target weights over 12 hours (turnover control)
+stop_vol_mult = 4.0         # disaster stop at 4 daily sigmas, between 3% and 25% of price
 
 [risk]
-max_exposure = 1.0
-max_short = 1.0             # short sleeve is volatility-sized 0.25-1.0 of equity, no leverage
-min_rebalance = 0.10
-circuit_breaker_dd = 0.10   # 10% below the high-water mark -> flat for 48h
-circuit_breaker_hours = 48.0
-campaign_stop_loss = 0.15   # 15% below initial capital -> flat for the rest of the run
-stop_rearm = true
-stop_cooldown_bars = 0
-
-# Selected in research/LONG_SHORT_DECISION.md (pre-registered rule, 2018-2024 data).
-# Longs: breakout_dual unchanged (0/50/100% BTC on spot). Shorts: only while the
-# long side is flat AND BTC closes below its 125-day average but not more than 35%
-# below it; enter on a fresh 10-day low, cover on a 2-day high or at the 35% floor;
-# size = clip(0.004 / (ATR168 / close), 0.25, 1.0) fixed at entry.
-[strategy]
-name = "lss_breakdown_vol"
-
-[strategy.params]
-entry_n = 240
-exit_n = 48
-regime_n = 3000
-floor = 0.35
-short_risk = 0.004
+allow_short = true          # false = spot: long or flat, no leverage (see config/spot.toml)
+max_gross = 3.0             # hard cap on total exposure (x equity)
+max_weight = 0.6            # hard cap on one position (x equity)
+rebalance_band = 0.25
+daily_target = 0.02         # the 2% a day target: measured and reported
+target_mode = "off"         # "off": never close winners to bank the target (research: locking costs 56-78% of growth)
+daily_loss_limit = 0.03     # flat for the rest of the UTC day after losing 3% on the day
+dd_soft = 0.15              # from a 15% drawdown, scale risk down ...
+dd_hard = 0.35              # ... to min_risk_mult at 35%
+min_risk_mult = 0.5
+kill_dd = 0.40              # at a 40% drawdown: flatten and stop until `compounder resume`
 
 [data]
-providers = ["binance_vision", "okx", "kucoin", "gate", "coinbase"]
-lookback_bars = 3000        # the bot fetches max(this, warm-up + 720) bars per tick
-sanity_check = true
-max_price_deviation = 0.015
-request_timeout_s = 15.0
-retries = 3
+sources = ["okx", "gate"]   # first = venue traded; others = fallback and price cross-check
+cross_check = true
+max_price_deviation = 0.02
+catchup_bars = 168          # a week of downtime is replayed exactly
 
 [notify]
-on_trade = true
+on_trade = false
 on_alert = true
 daily_summary = true

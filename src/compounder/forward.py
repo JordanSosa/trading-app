@@ -29,6 +29,7 @@ from .data.http import HttpClient
 from .data.live import DataError, Instrument, MarketSource, make_source
 from .data.panel import DAY_MS, Panel, build_panel, refresh_instant
 from .engine import Engine, EngineState
+from .errors import BrokerError
 from .state import StateError, StateStore, iso
 from .strategy import compute_targets
 
@@ -431,9 +432,13 @@ def tick(cfg: Config, store: StateStore, market: MarketData | None = None, now_m
         # 3) replay newly closed bars -----------------------------------------------
         panel = Panel(**{**panel.__dict__,
                          "rank": rank_rows(panel.times, panel.symbols, doc["universe"]["history"])})
-        engine = Engine(params, state, record=True)
+        engine = Engine(params, state, record=True, simulate=broker is None)
         if broker is not None:
-            broker.attach(engine, snap, events, now_ms)
+            try:
+                broker.attach(engine, snap, events, now_ms)      # mirrors the exchange account into `state`
+            except BrokerError as exc:
+                return _record_failure(store, doc, now_ms, f"exchange account unavailable: {exc}", notifier,
+                                       events, kind="alert", persist=not started)
         bars_before = state.bars_processed
         if len(new):
             tg = compute_targets(panel, cfg.strategy)
@@ -447,9 +452,10 @@ def tick(cfg: Config, store: StateStore, market: MarketData | None = None, now_m
             if len(usable) < len(new):
                 events.append({"ts_ms": now_ms, "kind": "warning",
                                "message": f"skipped {len(new) - len(usable)} bar(s) without enough warm-up history"})
+            if broker is not None:
+                # A live account cannot trade in the past: only the latest close is a decision point.
+                usable = usable[-1:]
             for i in usable:
-                if broker is not None:
-                    broker.before_close(int(panel.times[i]))
                 engine.on_close(int(panel.times[i]), panel.open[i], panel.high[i], panel.low[i], panel.close[i],
                                 tg.weights[i], tg.stop_frac[i], panel.funding[i])
             _close_stale_positions(engine, panel, events, now_ms, broker)
@@ -458,9 +464,16 @@ def tick(cfg: Config, store: StateStore, market: MarketData | None = None, now_m
         if state.pending is not None and snap.forming_ms is not None and snap.forming_open is not None:
             if state.last_close_ms is not None and snap.forming_ms == state.last_close_ms + step:
                 if broker is not None:
-                    broker.execute(snap.forming_ms)
+                    try:
+                        broker.execute(int(snap.forming_ms))
+                    except BrokerError as exc:
+                        events.append({"ts_ms": now_ms, "kind": "alert",
+                                       "message": f"order execution aborted: {exc}"})
                 else:
-                    engine.on_open(int(snap.forming_ms), snap.forming_open)
+                    late = now_ms - snap.forming_ms > cfg.data.late_fill_minutes * 60_000
+                    px = np.where(np.isfinite(snap.forming_open) & np.isfinite(snap.last), snap.last,
+                                  snap.forming_open) if late else snap.forming_open
+                    engine.on_open(int(snap.forming_ms), px)
 
         # 5) persist: ledgers first, then the state document --------------------------
         events.extend(engine.events)

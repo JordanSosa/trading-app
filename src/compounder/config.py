@@ -22,6 +22,15 @@ from .strategy import StrategyParams
 TIMEFRAME_MS = {"1h": 3_600_000}
 MIN_DEPOSIT = 100.0
 
+# The strategy frozen in research/SELECTION.md. A [strategy] section in a config
+# file overrides individual values of this, not of the bare StrategyParams
+# defaults (which are the neutral starting point the research scripts use).
+DEFAULT_STRATEGY = StrategyParams(
+    universe_n=20, vol_window=336, trend_weight=1.0, trend_horizons=(48, 96, 192, 384, 768),
+    trend_response="linear", xsmom_weight=1.0, xsmom_lookback=336, carry_weight=0.0, reversal_weight=0.0,
+    short_scale=0.5, target_vol=0.015, vol_mode="target", rho=0.7, max_symbol_risk=0.5, smooth_bars=12,
+    stop_vol_mult=4.0)
+
 
 class ConfigError(ValueError):
     """Raised when the configuration is invalid."""
@@ -67,13 +76,13 @@ class RiskConfig:
     max_weight: float = 0.6
     rebalance_band: float = 0.25
     stop_cooldown_bars: int = 0
-    daily_target: float = 0.02
-    target_mode: str = "trail"
+    daily_target: float = 0.02       # the 2% a day target, measured on every completed day
+    target_mode: str = "off"         # "off": measure only; "flatten" / "trail": close winners at the target
     trail_giveback: float = 0.5
     daily_loss_limit: float = 0.03
-    dd_soft: float = 0.10
-    dd_hard: float = 0.30
-    min_risk_mult: float = 0.25
+    dd_soft: float = 0.15
+    dd_hard: float = 0.35
+    min_risk_mult: float = 0.5
     kill_dd: float = 0.40
     hwm_window_days: float = 0.0
     day_offset_hours: float = 0.0
@@ -87,6 +96,10 @@ class DataConfig:
     request_timeout_s: float = 15.0
     retries: int = 3
     catchup_bars: int = 168          # bars of downtime that can be replayed exactly
+    # Paper fills use the open of the bar that has just started. A tick that runs
+    # later than this many minutes into the bar fills at the latest price instead,
+    # as a live order sent at that moment would.
+    late_fill_minutes: float = 5.0
 
 
 @dataclass(frozen=True)
@@ -112,7 +125,7 @@ class Config:
     run: RunConfig = field(default_factory=RunConfig)
     universe: UniverseConfig = field(default_factory=UniverseConfig)
     costs: CostConfig = field(default_factory=CostConfig)
-    strategy: StrategyParams = field(default_factory=StrategyParams)
+    strategy: StrategyParams = field(default_factory=lambda: DEFAULT_STRATEGY)
     risk: RiskConfig = field(default_factory=RiskConfig)
     data: DataConfig = field(default_factory=DataConfig)
     notify: NotifyConfig = field(default_factory=NotifyConfig)
@@ -175,6 +188,8 @@ def _build(cls: type, raw: dict[str, Any], section: str) -> Any:
             raise ConfigError(f"[{section}] {key} must be true or false")
         kwargs[key] = value
     try:
+        if cls is StrategyParams:
+            return dataclasses.replace(DEFAULT_STRATEGY, **kwargs)
         return cls(**kwargs)
     except (TypeError, ValueError) as exc:
         raise ConfigError(f"[{section}] {exc}") from exc
@@ -240,8 +255,10 @@ def validate(cfg: Config) -> None:
     bad = [x for x in d.sources if x not in SOURCES]
     if bad:
         raise ConfigError(f"unknown data sources {bad}; available: {sorted(SOURCES)}")
-    if d.catchup_bars < 1:
-        raise ConfigError("data.catchup_bars must be >= 1")
+    if d.catchup_bars < 1 or d.late_fill_minutes < 0:
+        raise ConfigError("data.catchup_bars must be >= 1 and data.late_fill_minutes >= 0")
+    if r.mode == "live" and not k.allow_short:
+        raise ConfigError("live trading supports perpetual swaps only (risk.allow_short = true)")
     if lv.margin_mode not in ("cross", "isolated"):
         raise ConfigError("live.margin_mode must be 'cross' or 'isolated'")
     if lv.leverage < 1 or lv.max_order_notional <= 0:

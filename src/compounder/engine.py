@@ -196,6 +196,9 @@ class Engine:
     params: EngineParams
     state: EngineState
     record: bool = True                 # keep per-bar equity and fills (off for fast parameter sweeps)
+    # False in live mode: the exchange holds the account, so fills, stops, funding and
+    # liquidation are not simulated here; a broker mirrors the real account into ``state``.
+    simulate: bool = True
     trades: list[dict[str, Any]] = field(default_factory=list)
     events: list[dict[str, Any]] = field(default_factory=list)
     equity_curve: list[tuple] = field(default_factory=list)   # (close_ms, equity, gross, net, risk_mult)
@@ -318,13 +321,16 @@ class Engine:
         s, p = self.state, self.params
         if s.last_close_ms is not None and ts_ms <= s.last_close_ms:
             return
-        if s.last_open_ms is None or s.last_open_ms < ts_ms:
+        if not self.simulate:
+            s.pending = None                 # an order the broker never sent is void, not filled late
+            s.pending_stop = None
+        elif s.last_open_ms is None or s.last_open_ms < ts_ms:
             self.on_open(ts_ms, open_px)
         close_ms = ts_ms + p.interval_ms
         have = np.isfinite(close) & (close > 0)
 
         # 1) protective stops -------------------------------------------------
-        held = (s.qty != 0.0) & have & np.isfinite(s.stop_price)
+        held = (s.qty != 0.0) & have & np.isfinite(s.stop_price) & self.simulate
         if held.any():
             long_hit = held & (s.qty > 0) & (low <= s.stop_price)
             short_hit = held & (s.qty < 0) & (high >= s.stop_price)
@@ -349,7 +355,7 @@ class Engine:
 
         # 2) liquidation check on worst-case intrabar equity ---------------------
         held = s.qty != 0.0
-        if p.allow_short and held.any() and not s.liquidated:
+        if self.simulate and p.allow_short and held.any() and not s.liquidated:
             lo = np.where(have, low, s.last_price)
             hi = np.where(have, high, s.last_price)
             adverse = np.where(s.qty > 0, lo, hi)
@@ -369,7 +375,7 @@ class Engine:
         # 3) funding, mark to market, day roll-over ---------------------------
         s.last_price = np.where(have, close, s.last_price)
         held = s.qty != 0.0
-        if funding is not None and held.any():
+        if self.simulate and funding is not None and held.any():
             pay = float((s.qty[held] * s.last_price[held] * np.nan_to_num(funding[held])).sum())
             if pay:
                 s.cash -= pay

@@ -1,22 +1,21 @@
-name: Paper trade BTC/USDT
+name: Paper trade (compounder)
 
 # Runs one idempotent tick every 15 minutes. The engine replays every 1h bar
 # that closed since the previous tick, so delayed or skipped cron runs are
 # caught up exactly. Run state (ledgers, equity curve, STATUS.md) is committed
-# to the orphan branch `paper-state`, never to the code branch.
+# to the orphan branch `paper-state`, never to a code branch.
 #
+# Paper money only: this workflow never receives exchange API keys.
 # Scheduled workflows only run from the repository's default branch.
 
 on:
   schedule:
-    # Changed from "7,22,37,52" so GitHub re-registers the schedule: after
-    # the first merge no scheduled run fired in over 2 hours, while manual
-    # runs succeeded. Off-minute slots avoid the busiest :00/:30 cron times.
+    # Off-minute slots avoid the busiest :00/:30 cron times.
     - cron: "4,19,34,49 * * * *"
   workflow_dispatch:
     inputs:
       reset:
-        description: "Archive the current run and start a fresh 30-day run"
+        description: "Archive the current run and start a fresh one"
         type: boolean
         default: false
       accept_config_change:
@@ -34,6 +33,7 @@ concurrency:
 env:
   STATE_BRANCH: paper-state
   STATE_DIR: state-branch
+  CONFIG: config/paper.toml
 
 jobs:
   tick:
@@ -73,26 +73,40 @@ jobs:
             git worktree add --detach "$STATE_DIR"
             git -C "$STATE_DIR" switch --orphan "$STATE_BRANCH"
           fi
-          printf '.tick.lock\n*.tmp\n' > "$STATE_DIR/.gitignore"
+          # The candle cache is an optimisation only and is never committed.
+          printf '.tick.lock\n*.tmp\ncache/\n' > "$STATE_DIR/.gitignore"
+
+      - name: Restore candle cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.STATE_DIR }}/cache
+          key: candles-${{ github.run_id }}
+          restore-keys: candles-
+
+      - name: Archive a run left by a previous version of the app
+        run: |
+          if [ -f "$STATE_DIR/state.json" ] && ! grep -q '"schema_version": 2' "$STATE_DIR/state.json"; then
+            compounder reset --config "$CONFIG" --state-dir "$STATE_DIR" --yes
+          fi
 
       - name: Reset run (manual)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.reset }}
-        run: tradebot reset --config config/paper.toml --state-dir "$STATE_DIR" --yes
+        run: compounder reset --config "$CONFIG" --state-dir "$STATE_DIR" --yes
 
       - name: Tick
         id: tick
         env:
           ACCEPT_CHANGE: ${{ github.event_name == 'workflow_dispatch' && inputs.accept_config_change }}
-          TRADEBOT_DISCORD_WEBHOOK: ${{ secrets.TRADEBOT_DISCORD_WEBHOOK }}
-          TRADEBOT_SLACK_WEBHOOK: ${{ secrets.TRADEBOT_SLACK_WEBHOOK }}
-          TRADEBOT_TELEGRAM_BOT_TOKEN: ${{ secrets.TRADEBOT_TELEGRAM_BOT_TOKEN }}
-          TRADEBOT_TELEGRAM_CHAT_ID: ${{ secrets.TRADEBOT_TELEGRAM_CHAT_ID }}
-          TRADEBOT_NTFY_TOPIC: ${{ secrets.TRADEBOT_NTFY_TOPIC }}
+          COMPOUNDER_NTFY_TOPIC: ${{ secrets.COMPOUNDER_NTFY_TOPIC }}
+          COMPOUNDER_DISCORD_WEBHOOK: ${{ secrets.COMPOUNDER_DISCORD_WEBHOOK }}
+          COMPOUNDER_SLACK_WEBHOOK: ${{ secrets.COMPOUNDER_SLACK_WEBHOOK }}
+          COMPOUNDER_TELEGRAM_BOT_TOKEN: ${{ secrets.COMPOUNDER_TELEGRAM_BOT_TOKEN }}
+          COMPOUNDER_TELEGRAM_CHAT_ID: ${{ secrets.COMPOUNDER_TELEGRAM_CHAT_ID }}
         run: |
           set +e
           extra=()
           [ "$ACCEPT_CHANGE" = "true" ] && extra+=(--accept-config-change)
-          tradebot tick --config config/paper.toml --state-dir "$STATE_DIR" --github-summary "${extra[@]}"
+          compounder tick --config "$CONFIG" --state-dir "$STATE_DIR" --github-summary "${extra[@]}"
           code=$?
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
           exit 0
@@ -130,9 +144,9 @@ jobs:
           exit 1
 
       - name: Fail on persistent tick errors
-        # Soft failures (e.g. one exchange outage) exit 0; repeated failures exit 2
-        # and config/state errors exit 1, so GitHub's failed-workflow e-mail alerts you.
+        # Soft failures (one exchange outage) exit 0; repeated failures exit 2 and
+        # config/state errors exit 1, so GitHub's failed-workflow e-mail alerts you.
         if: ${{ steps.tick.outputs.exit_code != '0' }}
         run: |
-          echo "tradebot tick exited with ${{ steps.tick.outputs.exit_code }}" >&2
+          echo "compounder tick exited with ${{ steps.tick.outputs.exit_code }}" >&2
           exit 1

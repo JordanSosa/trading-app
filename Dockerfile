@@ -12,5 +12,5 @@ RUN pip install --no-cache-dir --no-deps --no-build-isolation . \
 COPY config ./config
 USER trader
 VOLUME ["/state"]
-ENTRYPOINT ["tradebot"]
+ENTRYPOINT ["compounder"]
 CMD ["run", "--config", "config/paper.toml", "--state-dir", "/state"]

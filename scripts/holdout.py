@@ -1,67 +1,88 @@
-"""One-time holdout evaluation (2025-01-01 .. end of data).
+"""The single HOLDOUT evaluation of the frozen configuration (research/SELECTION.md, section 6).
 
-Run ONLY after the strategy was selected on 2018-2024 data. It reports the
-selected strategy next to buy & hold and the other finalists for context;
-the holdout result must not be used to change the selection.
-
-Usage: python scripts/holdout.py --data data/BTCUSDT-1h.csv --selected NAME [--others A B ...]
+Runs the full engine on 2025-01-01 .. 2026-10-31 for everything declared in
+advance and writes research/results/holdout.json. Not to be re-run with
+different settings.
 """
 
 from __future__ import annotations
 
-import argparse
-import json
-from pathlib import Path
+import dataclasses
+import sys
 
 import numpy as np
 
-from tradebot.backtest import run_backtest, run_campaigns
-from tradebot.config import load_config
-from tradebot.data.history import load_history
-from tradebot.metrics import campaign_summary
-from tradebot.research import PERIODS, campaign_score
-from tradebot.strategies import get_strategy
+from rlib import PERIODS, ROOT, dump, ebrief, load_panel
+from compounder.backtest import ms, run_backtest
+from compounder.config import load_config
+from compounder.metrics import daily_stats, ruin_report
+from compounder.strategy import compute_targets
 
-
-def evaluate(df, name, cfg):
-    s = get_strategy(name)
-    sig = s.signals(df)
-    start, end = PERIODS["holdout"]
-    camp = run_campaigns(df, s, cfg, start, end, signals=sig)
-    bt = run_backtest(df, s, cfg, start, end, signals=sig)
-    summ = campaign_summary(camp)
-    return {
-        "score": campaign_score(camp),
-        "campaigns": summ,
-        "raw_buy_hold": {"pct_positive": float((camp["bh_return"] > 0).mean()),
-                         "mean": float(camp["bh_return"].mean()),
-                         "median": float(camp["bh_return"].median()),
-                         "score": float(np.log1p(camp["bh_return"]).mean())},
-        "continuous": {k: bt.metrics.get(k) for k in ("start", "end", "total_return", "cagr", "sharpe",
-                                                      "max_drawdown", "n_trades", "round_trips", "win_rate",
-                                                      "time_in_market", "fees_paid")},
-    }
+KEEP = ("days", "compound_daily", "mean_daily", "total_return", "cagr", "sharpe", "sortino", "daily_vol",
+        "max_drawdown", "engine_max_drawdown", "pct_days_at_target", "pct_days_up", "pct_days_down", "best_day",
+        "worst_day", "p05_day", "p95_day", "avg_gross", "avg_net", "max_gross", "trades", "stops", "turnover_per_day",
+        "fees_paid", "funding_paid", "days_target_hit", "days_loss_limit", "killed", "liquidated", "initial_equity",
+        "final_equity", "by_year", "by_month", "longest_drawdown_days", "avg_risk_mult")
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--data", required=True)
-    ap.add_argument("--selected", required=True)
-    ap.add_argument("--others", nargs="*", default=[])
-    ap.add_argument("--out", default="research/holdout.json")
-    args = ap.parse_args()
-    cfg = load_config()
-    df = load_history(args.data)
-    res = {"period": PERIODS["holdout"], "data_end": str(df.index[-1]), "selected": args.selected,
-           "results": {n: evaluate(df, n, cfg) for n in [args.selected, "buy_hold", *args.others]}}
-    Path(args.out).write_text(json.dumps(res, indent=1, default=str))
-    for n, r in res["results"].items():
-        c, k = r["campaigns"], r["continuous"]
-        print(f"{n:24s} score {r['score']:+.4f} win {c['pct_positive']:.1%} lose {c['pct_negative']:.1%} "
-              f"mean {c['mean']:+.2%} median {c['median']:+.2%} p05 {c['p05']:+.2%} | total {k['total_return']:+.1%} "
-              f"maxDD {k['max_drawdown']:.1%} trades {k['n_trades']}")
-    rb = res["results"][args.selected]["raw_buy_hold"]
-    print(f"raw buy&hold (no overlay)  score {rb['score']:+.4f} win {rb['pct_positive']:.1%} mean {rb['mean']:+.2%}")
+    period = sys.argv[1] if len(sys.argv) > 1 else "holdout"
+    cfg = load_config(ROOT / "config" / "paper.toml")
+    spot = load_config(ROOT / "config" / "spot.toml")
+    panel = load_panel()
+    lo, hi = PERIODS[period]
+    ep = cfg.engine_params()
+    strat = cfg.strategy
+    tg = compute_targets(panel, strat)
+    out: dict = {"period": [lo, hi], "strategy": strat.to_dict(), "engine": dataclasses.asdict(ep), "runs": {}}
+
+    def run(label: str, weights, stop_frac, params, equity: float = 10_000.0, ruin: bool = False):
+        res = run_backtest(panel, weights, params, equity, lo, hi, stop_frac=stop_frac, record=True)
+        row = {k: res.metrics.get(k) for k in KEEP}
+        if ruin and len(res.daily_returns) > 100:
+            row["bootstrap_1y"] = ruin_report(res.daily_returns, 365, levels=(0.2, 0.35, 0.5), n_paths=4000)
+        out["runs"][label] = row
+        print(f"{label:44s} {ebrief(res.metrics)}", flush=True)
+        return res
+
+    base_tv = strat.target_vol
+    primary = run("default, 10,000 USDT (PRIMARY)", tg.weights, tg.stop_frac, ep, ruin=True)
+    print("   by year:", {k: round(v, 4) for k, v in primary.metrics["by_year"].items()})
+    print("   by month:", {k: round(v, 3) for k, v in primary.metrics["by_month"].items()})
+    run("default, 100 USDT", tg.weights, tg.stop_frac, ep, equity=100.0)
+    run("default, 1,000 USDT", tg.weights, tg.stop_frac, ep, equity=1000.0)
+    aggr = tg.weights * (0.03 / base_tv)
+    run("aggressive 3%, 10,000 USDT", aggr, tg.stop_frac, ep, ruin=True)
+    run("aggressive 3%, 100 USDT", aggr, tg.stop_frac, ep, equity=100.0)
+    run("default, doubled costs", tg.weights, tg.stop_frac,
+        dataclasses.replace(ep, fee_rate=ep.fee_rate * 2, slippage=ep.slippage * 2))
+    run("default, stops fill at the bar extreme", tg.weights, tg.stop_frac, dataclasses.replace(ep, stop_overshoot=1.0))
+    run("default, governor off", tg.weights, tg.stop_frac,
+        dataclasses.replace(ep, daily_loss_limit=None, dd_soft=1.0, dd_hard=1.0, kill_dd=None))
+    run("default, +2% profit lock (flatten)", tg.weights, tg.stop_frac, dataclasses.replace(ep, target_mode="flatten"))
+    run("default, +2% profit lock (trail)", tg.weights, tg.stop_frac, dataclasses.replace(ep, target_mode="trail"))
+    for tv in (0.005, 0.01, 0.015, 0.02, 0.03, 0.04, 0.06, 0.08):
+        run(f"risk ladder: target vol {tv:.3f}", tg.weights * (tv / base_tv), tg.stop_frac,
+            dataclasses.replace(ep, max_gross=10.0, max_weight=3.0))
+    t0 = compute_targets(panel, dataclasses.replace(strat, xsmom_weight=0.0))
+    run("attribution: trend only (T0)", t0.weights, t0.stop_frac, ep)
+    x0 = compute_targets(panel, dataclasses.replace(strat, trend_weight=0.0, short_scale=1.0))
+    run("attribution: cross-sectional only (X0)", x0.weights, x0.stop_frac, ep)
+    sp = compute_targets(panel, spot.strategy)
+    run("spot preset (long or flat, no leverage)", sp.weights, sp.stop_frac, spot.engine_params())
+
+    # Context: buy and hold BTC over the same window (close to close, no costs).
+    j = panel.index_of("BTCUSDT")
+    sel = (panel.times >= ms(lo)) & (panel.times < ms(hi))
+    c = panel.close[sel, j]
+    day_idx = np.nonzero((panel.times[sel] + panel.interval_ms) % 86_400_000 == 0)[0]
+    daily = c[day_idx][1:] / c[day_idx][:-1] - 1.0
+    bh = daily_stats(daily)
+    out["btc_buy_and_hold"] = {k: bh[k] for k in ("total_return", "cagr", "compound_daily", "sharpe", "daily_vol",
+                                                  "max_drawdown", "worst_day", "pct_days_at_target")}
+    print(f"BTC buy and hold: total {bh['total_return']:+.1%}, max drawdown {bh['max_drawdown']:.1%}, "
+          f"compound/d {bh['compound_daily']:+.3%}")
+    dump(ROOT / "research" / "results" / f"{period}.json", out)
     return 0
 
 

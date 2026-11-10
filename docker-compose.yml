@@ -1,21 +1,20 @@
-# 24/7 alternative to the GitHub Actions scheduler:
-#   docker compose up -d --build                                   # start (resumes an existing run)
-#   docker compose logs -f                                         # follow ticks
-#   docker compose exec tradebot tradebot status --state-dir /state
-#   docker compose run --rm -p 8080:8080 tradebot serve --state-dir /state --host 0.0.0.0
+# 24/7 paper trading on any always-on machine:
+#   docker compose up -d --build                                       # start (resumes an existing run)
+#   docker compose logs -f                                             # follow ticks
+#   docker compose exec compounder compounder status --state-dir /state
+#   docker compose run --rm -p 8080:8080 compounder serve --state-dir /state --host 0.0.0.0
 #
-# State lives in the named volume `tradebot-state` (created with the right
-# ownership for the non-root container user). Copy it out with:
-#   docker compose cp tradebot:/state ./state-export
+# State lives in the named volume `compounder-state`. Copy it out with:
+#   docker compose cp compounder:/state ./state-export
 services:
-  tradebot:
+  compounder:
     build: .
     restart: on-failure
     volumes:
-      - tradebot-state:/state
+      - compounder-state:/state
     env_file:
       - path: .env          # optional notification secrets, see .env.example
         required: false
 
 volumes:
-  tradebot-state: {}
+  compounder-state: {}

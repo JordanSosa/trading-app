@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "tradebot"
-version = "0.1.0"
-description = "BTC/USDT paper-trading bot: candle-driven forward trading with a backtest engine that shares the exact same code path."
+name = "compounder"
+version = "1.0.0"
+description = "Risk-governed multi-asset crypto trading bot with a daily profit target: backtest, paper and (opt-in) live trading on one engine."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -17,19 +17,20 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+live = ["ccxt>=4.3"]
 
 [project.scripts]
-tradebot = "tradebot.cli:main"
+compounder = "compounder.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-tradebot = ["py.typed"]
+compounder = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-q -p no:logging"
 markers = [
     "network: test hits live exchange APIs (deselect with -m 'not network')",
 ]

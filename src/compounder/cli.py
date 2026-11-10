@@ -190,8 +190,9 @@ def cmd_reset(args: argparse.Namespace) -> int:
     with store.lock():
         dest = store.root / "archive" / time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
         dest.mkdir(parents=True, exist_ok=True)
-        for name in ("state.json", "trades.csv", "daily.csv", "equity.csv", "events.jsonl", "STATUS.md",
-                     "equity.svg", "dashboard.html", "summary.json"):
+        # Includes the ledgers of the app this one replaced, so an old run is archived whole.
+        for name in ("state.json", "trades.csv", "trips.csv", "daily.csv", "equity.csv", "events.jsonl",
+                     "STATUS.md", "README.md", "equity.svg", "dashboard.html", "summary.json"):
             src = store.root / name
             if src.exists():
                 shutil.move(str(src), str(dest / name))

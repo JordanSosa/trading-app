@@ -1,0 +1,73 @@
+# compounder: SPOT preset. Long or flat only, no leverage, no shorting.
+#
+# For accounts that cannot trade derivatives. Weaker than the default: without shorts it
+# makes nothing in bear markets (-24% in 2022 in research). Paper and backtest only.
+#
+# This is the configuration frozen in research/SELECTION.md. Every key is documented in
+# src/compounder/config.py. A running account refuses to continue if strategy, risk,
+# cost or universe settings change (see README: Configuration).
+
+[run]
+mode = "paper"              # "paper" or "live" (live needs API keys and an explicit flag)
+timeframe = "1h"
+initial_equity = 100.0      # paper deposit in USDT; the minimum is 100
+state_dir = "state-spot"
+
+[universe]
+size = 20                   # the 20 most liquid crypto perpetuals, re-ranked every Monday 00:00 UTC
+refresh_days = 7
+volume_window_days = 30
+min_history_days = 30
+exclude = []                # base assets never traded, e.g. ["DOGE"]
+
+[costs]                     # used by paper fills and backtests
+fee_rate = 0.001            # spot taker fee per side
+slippage_bps = 3.0
+stop_slippage_bps = 10.0
+stop_overshoot = 0.25       # share of the move beyond a stop trigger that is given up
+min_notional = 5.0          # smallest order the venue accepts (USDT)
+min_position_mult = 2.0     # positions are at least 2 x min_notional
+maint_margin = 0.025
+liquidation_fee = 0.015
+
+[strategy]
+universe_n = 20
+vol_window = 336            # 14 days of hourly bars
+trend_weight = 1.0
+trend_horizons = [48, 96, 192, 384, 768]    # 2, 4, 8, 16, 32 days
+trend_response = "linear"
+xsmom_weight = 1.0
+xsmom_lookback = 336        # 14 days
+carry_weight = 0.0          # rejected in research
+reversal_weight = 0.0       # rejected in research
+short_scale = 0.0           # no shorts
+target_vol = 0.015          # portfolio daily volatility target: THE risk dial (see README)
+vol_mode = "target"
+rho = 0.7
+max_symbol_risk = 0.5
+smooth_bars = 12            # average target weights over 12 hours (turnover control)
+stop_vol_mult = 4.0         # disaster stop at 4 daily sigmas, between 3% and 25% of price
+
+[risk]
+allow_short = false         # spot: long or flat
+max_gross = 1.0             # never more than the account
+max_weight = 0.4            # hard cap on one position (x equity)
+rebalance_band = 0.25
+daily_target = 0.02         # the 2% a day target: measured and reported
+target_mode = "off"         # "off": never close winners to bank the target (research: locking costs 56-78% of growth)
+daily_loss_limit = 0.03     # flat for the rest of the UTC day after losing 3% on the day
+dd_soft = 0.15              # from a 15% drawdown, scale risk down ...
+dd_hard = 0.35              # ... to min_risk_mult at 35%
+min_risk_mult = 0.5
+kill_dd = 0.40              # at a 40% drawdown: flatten and stop until `compounder resume`
+
+[data]
+sources = ["okx", "gate"]   # first = venue traded; others = fallback and price cross-check
+cross_check = true
+max_price_deviation = 0.02
+catchup_bars = 168          # a week of downtime is replayed exactly
+
+[notify]
+on_trade = false
+on_alert = true
+daily_summary = true

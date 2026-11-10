@@ -12,16 +12,12 @@ venv/
 .coverage
 htmlcov/
 
-# Local data caches and run state (the live paper run persists state on the
-# `paper-state` branch, never on the code branch).
+# Downloaded market data and run state (a GitHub Actions paper run keeps its
+# state on the `paper-state` branch, never on a code branch).
 /data/
 /state/
+/state-*/
 *.lock
 .DS_Store
-/replay-state/
 .env
-*.pkl
-
-# Scratch output accidentally written to the repo root by analysis scripts
-/*.csv
-/*.json
+config/live.toml

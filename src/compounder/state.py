@@ -24,7 +24,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 TRADE_FIELDS = ["ts_ms", "time", "symbol", "side", "qty", "price", "notional", "fee", "reason", "qty_after"]
 DAILY_FIELDS = ["day_end_ms", "date", "start_equity", "end_equity", "return", "target_hit", "loss_limit_hit"]

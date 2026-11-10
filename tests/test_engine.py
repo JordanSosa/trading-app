@@ -1,229 +1,313 @@
-import math
+"""Engine accounting, execution rules and the risk governor."""
 
+from __future__ import annotations
+
+import json
+
+import numpy as np
 import pytest
 
-from tradebot.engine import Engine, EngineParams, EngineState
+from compounder.backtest import run_backtest
+from compounder.engine import Engine, EngineParams, EngineState, drawdown_multiplier
 
-H = 3_600_000
+from conftest import T0, free_params, make_panel, random_walk
 
-
-def params(**kw) -> EngineParams:
-    base = dict(interval_ms=H, fee_rate=0.001, slippage=0.0003, min_notional=10.0, qty_step=0.00001,
-                max_exposure=1.0, min_rebalance=0.10, cb_dd=0.10, cb_ms=48 * H, campaign_stop_loss=0.15,
-                stop_rearm=True, stop_cooldown_bars=0, end_action="flatten")
-    base.update(kw)
-    return EngineParams(**base)
+HOUR = 3_600_000
 
 
-def engine(cash=10_000.0, **kw) -> Engine:
-    return Engine(params(**kw), EngineState.fresh(cash))
+def test_frictionless_long_tracks_price():
+    px = random_walk(24 * 20, 1, seed=1)[:, 0]
+    p = make_panel(px)
+    res = run_backtest(p, np.ones((p.n_bars, 1)), free_params(), 1000.0)
+    # Decided at the close of bar 0, filled at the open of bar 1 (= close of bar 0).
+    assert res.state.last_equity == pytest.approx(1000.0 * px[-1] / px[0], rel=1e-12)
 
 
-def bar(e: Engine, i: int, o, h, l, c, target, stop=math.nan):
-    e.on_close(i * H, o, h, l, c, target, stop)
+def test_constant_leverage_compounds_bar_by_bar():
+    px = random_walk(24 * 20, 1, seed=2)[:, 0]
+    p = make_panel(px)
+    res = run_backtest(p, 2.0 * np.ones((p.n_bars, 1)), free_params(), 1000.0)
+    r = px[1:] / px[:-1] - 1.0
+    assert res.state.last_equity == pytest.approx(1000.0 * np.prod(1.0 + 2.0 * r), rel=1e-10)
 
 
-def test_decision_fills_at_next_open_with_costs():
-    e = engine()
-    bar(e, 0, 100, 101, 99, 100, 1.0)
-    assert e.trades == [] and e.state.pending["target"] == 1.0
-    bar(e, 1, 110, 111, 109, 110, 1.0)  # fill at 110 open, not the 100 close
-    t = e.trades[0]
-    fill = 110 * 1.0003
-    assert t["side"] == "buy" and t["price"] == pytest.approx(fill)
-    expected_qty = math.floor(10_000 / (fill * 1.001) / 0.00001) * 0.00001
-    assert t["qty"] == pytest.approx(expected_qty)
-    assert t["fee"] == pytest.approx(expected_qty * fill * 0.001)
-    assert e.state.cash >= 0
-    assert e.state.cash == pytest.approx(10_000 - expected_qty * fill * 1.001)
+def test_short_profits_when_price_falls_and_receives_positive_funding():
+    px = np.linspace(100.0, 80.0, 49)
+    funding = np.zeros((49, 1))
+    funding[7::8] = 0.001
+    p = make_panel(px, funding=funding)
+    res = run_backtest(p, -np.ones((49, 1)), free_params(rebalance_band=10.0), 1000.0)
+    assert res.state.last_equity > 1000.0
+    assert res.state.funding_paid < 0.0            # a short receives positive funding
 
 
-def test_round_trip_accounting_is_consistent():
-    e = engine()
-    bar(e, 0, 100, 101, 99, 100, 1.0)
-    bar(e, 1, 100, 106, 99, 105, 1.0)
-    bar(e, 2, 105, 108, 104, 107, 0.0)
-    bar(e, 3, 108, 109, 107, 108, 0.0)  # sell at 108 open
-    s = e.state
-    assert s.qty == pytest.approx(0.0, abs=1e-5)
-    # Realised P&L (net of all fees) equals the change in equity once flat.
-    assert s.realized_pnl == pytest.approx(s.cash + s.qty * 108 - 10_000, abs=1e-6)
-    assert s.fees_paid == pytest.approx(sum(t["fee"] for t in e.trades))
-    assert len(e.trips) == 1 and e.trips[0]["pnl"] == pytest.approx(s.realized_pnl, abs=1e-6)
+def test_long_pays_positive_funding():
+    px = np.full(30, 100.0)
+    funding = np.zeros((30, 1))
+    funding[10] = 0.01
+    p = make_panel(px, funding=funding)
+    res = run_backtest(p, np.ones((30, 1)), free_params(), 1000.0)
+    assert res.state.funding_paid == pytest.approx(10.0)
+    assert res.state.last_equity == pytest.approx(990.0)
 
 
-def test_rebalance_band_skips_small_changes():
-    e = engine()
-    bar(e, 0, 100, 100, 100, 100, 1.0)
-    bar(e, 1, 100, 100, 100, 100, 0.95)  # exposure ~1.0 -> 0.95: below 0.10 band
-    bar(e, 2, 100, 100, 100, 100, 0.95)
-    assert len(e.trades) == 1
-    bar(e, 3, 100, 100, 100, 100, 0.5)
-    bar(e, 4, 100, 100, 100, 100, 0.5)
-    assert len(e.trades) == 2 and e.trades[-1]["side"] == "sell"
-    assert e.state.qty * 100 / e.equity_at(100) == pytest.approx(0.5, abs=0.01)
+def test_fees_and_slippage_are_charged_on_every_fill():
+    px = np.full(10, 100.0)
+    p = make_panel(px)
+    params = free_params(fee_rate=0.001, slippage=0.002, rebalance_band=0.5)
+    w = np.ones((10, 1))
+    w[5:] = 0.0
+    res = run_backtest(p, w, params, 1000.0)
+    assert res.state.trade_count == 2
+    # Buy 1000 notional at 100.2, sell the same quantity at 99.8, fee on each fill.
+    qty = 1000.0 / 100.0
+    expected = 1000.0 - qty * 100.2 * 1.001 + qty * 99.8 * 0.999
+    assert res.state.last_equity == pytest.approx(expected, rel=1e-12)
+    assert res.state.fees_paid == pytest.approx(qty * 100.2 * 0.001 + qty * 99.8 * 0.001)
 
 
-def test_target_is_clipped_to_max_exposure():
-    e = engine(max_exposure=0.6)
-    bar(e, 0, 100, 100, 100, 100, 1.0)
-    bar(e, 1, 100, 100, 100, 100, 1.0)
-    assert e.state.qty * 100 / e.equity_at(100) == pytest.approx(0.6, abs=0.001)
+def test_orders_fill_at_next_open_not_at_the_signal_close():
+    # The price jumps on bar 3; a signal computed at the close of bar 3 must not earn that jump.
+    px = np.array([100.0, 100.0, 100.0, 110.0, 110.0, 110.0])
+    p = make_panel(px)
+    w = np.zeros((6, 1))
+    w[3:] = 1.0
+    res = run_backtest(p, w, free_params(), 1000.0)
+    assert res.state.last_equity == pytest.approx(1000.0)
+    assert res.trades[0]["price"] == pytest.approx(110.0)
 
 
-def test_protective_stop_fills_at_stop_or_gap_open():
-    e = engine()
-    bar(e, 0, 100, 100, 100, 100, 1.0, stop=5.0)
-    bar(e, 1, 100, 101, 99, 100, 1.0, stop=5.0)  # entry ~100.03, stop ~95.03
-    stop = e.state.stop_price
-    assert stop == pytest.approx(100 * 1.0003 - 5.0)
-    bar(e, 2, 99, 99.5, 94, 96, 1.0, stop=5.0)   # low 94 < stop -> filled at stop
-    t = e.trades[-1]
-    assert t["reason"] == "stop" and t["ref_price"] == pytest.approx(stop)
-    assert t["price"] == pytest.approx(stop * (1 - 0.0003))
-    # gap-down case: open below stop fills at the open
-    e2 = engine()
-    bar(e2, 0, 100, 100, 100, 100, 1.0, stop=5.0)
-    bar(e2, 1, 100, 101, 99, 100, 1.0, stop=5.0)
-    bar(e2, 2, 90, 92, 89, 91, 1.0, stop=5.0)
-    assert e2.trades[-1]["ref_price"] == pytest.approx(90)
+def test_protective_stop_fills_at_trigger_with_overshoot_and_blocks_reentry():
+    px = np.array([100.0, 100.0, 100.0, 80.0, 82.0, 85.0, 90.0])
+    p = make_panel(px)
+    params = free_params(stop_overshoot=0.5, stop_slippage=0.0)
+    res = run_backtest(p, np.ones((7, 1)), params, 1000.0, stop_frac=0.10)
+    stops = [t for t in res.trades if t["reason"] == "stop"]
+    assert len(stops) == 1
+    # Trigger 90, bar low 80: half of the 10-point overshoot is given up.
+    assert stops[0]["price"] == pytest.approx(85.0)
+    assert res.state.stop_count == 1
+    # The signal never left the long side, so the stopped side stays blocked.
+    assert res.state.qty[0] == 0.0 and res.state.blocked[0] == 1.0
 
 
-def test_trailing_stop_only_ratchets_up():
-    e = engine()
-    bar(e, 0, 100, 100, 100, 100, 1.0, stop=5.0)
-    bar(e, 1, 100, 110, 100, 110, 1.0, stop=5.0)
-    assert e.state.stop_price == pytest.approx(105)
-    bar(e, 2, 110, 110, 106, 107, 1.0, stop=5.0)
-    assert e.state.stop_price == pytest.approx(105)
+def test_stop_gap_fills_at_open_when_the_bar_opens_beyond_the_trigger():
+    close = np.array([[100.0], [100.0], [100.0], [70.0]])
+    p = make_panel(close)
+    p.open[3, 0] = 75.0                      # gaps through the 90 stop
+    p.high[3, 0] = 75.0
+    p.low[3, 0] = 70.0
+    res = run_backtest(p, np.ones((4, 1)), free_params(), 1000.0, stop_frac=0.10)
+    stop = [t for t in res.trades if t["reason"] == "stop"][0]
+    assert stop["price"] == pytest.approx(75.0)
 
 
-def test_rearm_blocks_reentry_until_signal_resets():
-    e = engine()
-    bar(e, 0, 100, 100, 100, 100, 1.0, stop=5.0)
-    bar(e, 1, 100, 100, 100, 100, 1.0, stop=5.0)
-    bar(e, 2, 100, 100, 90, 92, 1.0, stop=5.0)   # stopped out
-    assert e.state.rearm_required
-    for i in range(3, 6):
-        bar(e, i, 92, 93, 91, 92, 1.0, stop=5.0)
-    assert len(e.trades) == 2  # no re-entry while target stays positive
-    bar(e, 6, 92, 93, 91, 92, 0.0, stop=5.0)    # signal resets
-    bar(e, 7, 92, 93, 91, 92, 1.0, stop=5.0)
-    bar(e, 8, 92, 93, 91, 92, 1.0, stop=5.0)
-    assert len(e.trades) == 3 and e.trades[-1]["side"] == "buy"
+def test_blocked_side_is_released_when_signal_flips():
+    px = np.array([100.0, 100.0, 100.0, 80.0, 80.0, 80.0, 80.0, 80.0])
+    p = make_panel(px)
+    w = np.ones((8, 1))
+    w[4] = 0.0          # signal leaves the long side: block released
+    res = run_backtest(p, w, free_params(), 1000.0, stop_frac=0.10)
+    assert res.state.blocked[0] == 0.0
+    assert res.state.qty[0] > 0.0
 
 
-def test_circuit_breaker_flattens_and_pauses():
-    e = engine(campaign_stop_loss=None)
-    bar(e, 0, 100, 100, 100, 100, 1.0)
-    bar(e, 1, 100, 100, 100, 100, 1.0)
-    bar(e, 2, 100, 100, 88, 88, 1.0)  # -12% from HWM
-    assert e.state.halt_until_ms == 3 * H + 48 * H
-    assert e.state.pending["target"] == 0.0
-    bar(e, 3, 88, 88, 88, 88, 1.0)
-    assert e.state.qty < 1e-5
-    for i in range(4, 50):
-        bar(e, i, 88, 88, 88, 88, 1.0)
-    assert len(e.trades) == 2  # stays flat during the halt
-    bar(e, 50, 88, 88, 88, 88, 1.0)
-    bar(e, 51, 88, 88, 88, 88, 1.0)
-    assert e.trades[-1]["side"] == "buy"
-    assert e.state.halt_until_ms is None
+def test_short_stop():
+    px = np.array([100.0, 100.0, 100.0, 125.0, 125.0])
+    p = make_panel(px)
+    res = run_backtest(p, -np.ones((5, 1)), free_params(), 1000.0, stop_frac=0.10)
+    stop = [t for t in res.trades if t["reason"] == "stop"][0]
+    assert stop["side"] == "buy" and stop["price"] == pytest.approx(110.0)
+    assert res.state.blocked[0] == -1.0
 
 
-def test_campaign_stop_loss_stops_trading_permanently():
-    e = engine(cb_dd=0.99)
-    bar(e, 0, 100, 100, 100, 100, 1.0)
-    bar(e, 1, 100, 100, 100, 100, 1.0)
-    bar(e, 2, 100, 100, 80, 82, 1.0)
-    assert e.state.stopped and e.state.status == "stopped"
-    for i in range(3, 10):
-        bar(e, i, 90, 95, 85, 95, 1.0)
-    assert e.trades[-1]["side"] == "sell" and len(e.trades) == 2
+def test_daily_target_flatten_goes_flat_until_next_day():
+    # +3% in the first hours of the day, then a crash the same day that must be avoided.
+    px = np.full(72, 100.0)
+    px[26:30] = 103.0
+    px[30:48] = 90.0
+    px[48:] = 90.0
+    p = make_panel(px)
+    params = free_params(daily_target=0.02, target_mode="flatten")
+    res = run_backtest(p, np.ones((72, 1)), params, 1000.0)
+    assert res.state.days_target_hit == 1
+    day1 = res.daily_returns[1]
+    assert day1 == pytest.approx(0.03, abs=1e-9)
+    assert "T" in res.day_flags[1]
+    # Re-entered the next day.
+    assert res.state.qty[0] > 0
 
 
-def test_campaign_end_flattens_and_completes():
-    st = EngineState.fresh(10_000.0, start_ms=0, end_ms=5 * H)
-    e = Engine(params(), st)
-    for i in range(5):
-        bar(e, i, 100, 100, 100, 100, 1.0)
-    assert st.ended and st.status == "ending" and st.pending["target"] == 0.0
-    e.on_open(5 * H, 101)
-    assert st.status == "completed" and st.qty < 1e-5
-    bar(e, 5, 101, 101, 101, 101, 1.0)
-    assert len(e.trades) == 2  # no trading after completion
+def test_daily_target_trail_locks_after_giveback():
+    px = np.full(60, 100.0)
+    px[26] = 104.0     # +4% on the day
+    px[27] = 102.5     # gives back more than half of the 2 points above target -> lock
+    px[28:48] = 95.0
+    p = make_panel(px)
+    params = free_params(daily_target=0.02, target_mode="trail", trail_giveback=0.5)
+    res = run_backtest(p, np.ones((60, 1)), params, 1000.0)
+    assert res.state.days_target_hit == 1
+    assert res.daily_returns[1] == pytest.approx(0.025, abs=1e-9)
 
 
-def test_events_are_idempotent():
-    e = engine()
-    bar(e, 0, 100, 100, 100, 100, 1.0)
-    bar(e, 1, 100, 100, 100, 100, 1.0)
-    n = len(e.trades)
-    bar(e, 1, 100, 100, 100, 100, 0.0)  # duplicate close ignored
-    e.on_open(1 * H, 50)                # duplicate open ignored
-    assert len(e.trades) == n and e.state.pending is None
+def test_daily_loss_limit_stops_trading_for_the_day():
+    px = np.full(72, 100.0)
+    px[26:48] = np.linspace(98.0, 60.0, 22)
+    px[48:] = 60.0
+    p = make_panel(px)
+    params = free_params(daily_loss_limit=0.03)
+    res = run_backtest(p, np.ones((72, 1)), params, 1000.0)
+    assert res.state.days_loss_limit == 1
+    # First close below -3% is bar 27 (96.1905); the exit fills at the next open (= that close).
+    assert res.daily_returns[1] == pytest.approx(px[27] / 100.0 - 1.0, abs=1e-9)
+    assert res.daily_returns[1] > -0.05
+    assert "L" in res.day_flags[1]
 
 
-def test_min_notional_and_cash_never_negative():
-    e = engine(cash=5.0)
-    bar(e, 0, 100, 100, 100, 100, 1.0)
-    bar(e, 1, 100, 100, 100, 100, 1.0)
-    assert e.trades == [] and e.state.cash == 5.0
-    e2 = engine()
+def test_drawdown_multiplier_shape():
+    assert drawdown_multiplier(0.05, 0.10, 0.30, 0.25) == 1.0
+    assert drawdown_multiplier(0.20, 0.10, 0.30, 0.25) == pytest.approx(0.625)
+    assert drawdown_multiplier(0.35, 0.10, 0.30, 0.25) == 0.25
+
+
+def test_drawdown_scaling_reduces_exposure():
+    px = np.concatenate([np.full(5, 100.0), np.linspace(100.0, 75.0, 60), np.full(10, 75.0)])
+    p = make_panel(px)
+    params = free_params(dd_soft=0.05, dd_hard=0.25, min_risk_mult=0.2)
+    res = run_backtest(p, np.ones((len(px), 1)), params, 1000.0)
+    assert res.state.risk_mult < 0.6
+    assert res.gross[-1] < 0.6
+    assert res.state.last_equity > 750.0            # lost less than the unmanaged 25%
+
+
+def test_kill_switch_flattens_and_stays_flat():
+    px = np.concatenate([np.full(5, 100.0), np.linspace(100.0, 50.0, 40), np.linspace(50.0, 100.0, 40)])
+    p = make_panel(px)
+    params = free_params(kill_dd=0.30)
+    res = run_backtest(p, np.ones((len(px), 1)), params, 1000.0)
+    assert res.state.killed and not res.state.liquidated
+    assert res.state.qty[0] == 0.0
+    assert 0.60 < res.state.last_equity / 1000.0 < 0.72     # stopped near the 30% line, missed the rebound
+    assert any(e["kind"] == "alert" and "KILL" in e["message"] for e in res.events)
+
+
+def test_liquidation_wipes_an_overleveraged_account():
+    px = np.array([100.0, 100.0, 100.0, 85.0, 85.0, 85.0])
+    p = make_panel(px)
+    params = free_params(max_gross=10.0, max_weight=10.0)
+    res = run_backtest(p, 8.0 * np.ones((6, 1)), params, 1000.0)
+    assert res.state.liquidated and res.state.killed
+    assert res.state.last_equity == pytest.approx(0.0)
+    assert res.metrics["liquidated"]
+
+
+def test_gross_and_weight_caps():
+    px = random_walk(50, 4, seed=5)
+    p = make_panel(px)
+    params = free_params(max_gross=1.5, max_weight=0.5)
+    w = np.tile(np.array([2.0, 2.0, -2.0, -2.0]), (50, 1))
+    res = run_backtest(p, w, params, 1000.0)
+    assert res.gross.max() < 1.6
+    assert res.metrics["max_gross"] < 1.6
+
+
+def test_spot_mode_never_shorts_or_borrows():
+    px = random_walk(200, 3, seed=6)
+    p = make_panel(px)
+    rng = np.random.default_rng(0)
+    w = rng.normal(0.3, 0.5, (200, 3))
+    params = free_params(allow_short=False, max_gross=1.0, max_weight=1.0, fee_rate=0.001)
+    eng_state = EngineState.fresh(p.symbols, 1000.0)
+    eng = Engine(params, eng_state)
     for i in range(200):
-        p = 100 + (i % 7) - 3
-        bar(e2, i, p, p + 1, p - 1, p, (i // 3) % 2)
-        assert e2.state.cash >= -1e-9 and e2.state.qty >= 0
+        eng.on_close(int(p.times[i]), p.open[i], p.high[i], p.low[i], p.close[i], w[i])
+        assert (eng_state.qty >= -1e-12).all()
+        assert eng_state.cash >= -1e-6
 
 
-def test_state_round_trip_resumes_identically():
-    import random
-    rnd = random.Random(3)
-    bars = []
-    p = 100.0
-    for i in range(400):
-        o = p
-        c = o * (1 + rnd.gauss(0, 0.01))
-        bars.append((i, o, max(o, c) * 1.003, min(o, c) * 0.997, c, 1.0 if (i // 25) % 2 == 0 else 0.0, 2.5))
-        p = c
-    a = engine()
-    for b in bars:
-        bar(a, *b)
-    b_eng = engine()
-    for k, b in enumerate(bars):
-        if k % 7 == 0:  # serialise/deserialise mid-run
-            b_eng = Engine(b_eng.params, EngineState.from_dict(b_eng.state.to_dict()))
-        bar(b_eng, *b)
-    assert b_eng.state.to_dict() == a.state.to_dict()
+def test_rebalance_band_suppresses_small_trades():
+    px = random_walk(24 * 10, 1, seed=7)[:, 0]
+    p = make_panel(px)
+    w = np.full((p.n_bars, 1), 0.5)
+    tight = run_backtest(p, w, free_params(rebalance_band=0.0), 1000.0)
+    banded = run_backtest(p, w, free_params(rebalance_band=0.25), 1000.0)
+    assert banded.state.trade_count < tight.state.trade_count / 5
 
 
-def test_buy_rows_carry_no_realised_pnl():
-    e = engine()
-    bar(e, 0, 100, 100, 100, 100, 1.0)
-    bar(e, 1, 100, 100, 100, 100, 0.0)
-    bar(e, 2, 100, 100, 100, 100, 0.0)
-    buy, sell = e.trades
-    assert buy["realized_pnl"] == 0.0
-    assert sum(t["realized_pnl"] for t in e.trades) == pytest.approx(e.state.cash - 10_000)
+def test_small_account_concentrates_instead_of_holding_nothing():
+    px = random_walk(60, 8, seed=8)
+    p = make_panel(px)
+    w = np.tile(np.array([0.15, -0.12, 0.10, -0.08, 0.06, 0.05, -0.03, 0.01]), (60, 1))
+    params = free_params(min_notional=5.0, min_position_mult=2.0, max_weight=0.6, max_gross=3.0, rebalance_band=0.25)
+    res = run_backtest(p, w, params, 100.0)
+    held = np.abs(res.state.qty * p.close[-1])
+    assert 2 <= (held > 0).sum() <= 5
+    assert held[held > 0].min() >= 7.0                 # every position clears the venue minimum
+    assert res.gross[-1] == pytest.approx(0.6, abs=0.15)
+    big = run_backtest(p, w, params, 100_000.0)
+    assert (big.state.qty != 0).sum() == 8
 
 
-def test_engine_is_frozen_after_campaign_end_in_hold_mode():
-    st = EngineState.fresh(10_000.0, start_ms=0, end_ms=3 * H)
-    e = Engine(params(end_action="hold"), st)
-    bar(e, 0, 100, 100, 100, 100, 1.0, stop=5.0)
-    bar(e, 1, 100, 100, 100, 100, 1.0, stop=5.0)
-    bar(e, 2, 100, 100, 100, 100, 1.0, stop=5.0)
-    assert st.status == "completed" and st.qty > 0
-    bar(e, 3, 100, 100, 50, 60, 0.0, stop=5.0)  # would have hit the stop
-    assert len(e.trades) == 1 and st.qty > 0
+def test_missing_bars_keep_position_marked_at_last_price():
+    px = random_walk(40, 2, seed=9)
+    p = make_panel(px)
+    for arr in (p.open, p.high, p.low, p.close):
+        arr[20:30, 1] = np.nan
+    res = run_backtest(p, np.full((40, 2), 0.5), free_params(), 1000.0)
+    assert np.isfinite(res.equity).all()
+    assert res.state.qty[1] != 0.0
 
 
-def test_trip_return_uses_peak_capital_not_sum_of_buys():
-    e = engine(min_rebalance=0.05)
-    bar(e, 0, 100, 100, 100, 100, 0.5)
-    bar(e, 1, 100, 100, 100, 100, 1.0)
-    bar(e, 2, 100, 100, 100, 100, 1.0)   # adds to 100%
-    bar(e, 3, 110, 110, 110, 110, 0.0)
-    bar(e, 4, 110, 110, 110, 110, 0.0)
-    trip = e.trips[0]
-    assert trip["return"] == pytest.approx(trip["pnl"] / (10_000 * 0.9999), rel=0.01)
+def test_state_round_trips_through_json_and_resumes_identically(walk_panel):
+    p = walk_panel
+    rng = np.random.default_rng(4)
+    w = rng.normal(0, 0.2, (p.n_bars, p.n_symbols))
+    params = EngineParams(min_notional=5.0)
+    full = Engine(params, EngineState.fresh(p.symbols, 5000.0))
+    for i in range(p.n_bars):
+        full.on_close(int(p.times[i]), p.open[i], p.high[i], p.low[i], p.close[i], w[i], np.full(p.n_symbols, 0.08),
+                      p.funding[i])
+    state = EngineState.fresh(p.symbols, 5000.0)
+    for i in range(p.n_bars):
+        eng = Engine(params, EngineState.from_dict(json.loads(json.dumps(state.to_dict()))))
+        eng.on_close(int(p.times[i]), p.open[i], p.high[i], p.low[i], p.close[i], w[i], np.full(p.n_symbols, 0.08),
+                     p.funding[i])
+        state = eng.state
+    assert state.last_equity == pytest.approx(full.state.last_equity, rel=1e-12)
+    assert np.allclose(state.qty, full.state.qty, rtol=1e-12, atol=1e-12)
+    assert state.trade_count == full.state.trade_count
+
+
+def test_state_realigns_to_a_new_symbol_list():
+    st = EngineState.fresh(("AUSDT", "BUSDT"), 100.0)
+    st.qty[0] = 2.0
+    st.last_price[:] = [10.0, 20.0]
+    moved = EngineState.from_dict(st.to_dict(), symbols=("AUSDT", "CUSDT"))
+    assert moved.symbols == ("AUSDT", "CUSDT")
+    assert moved.qty.tolist() == [2.0, 0.0]
+    assert np.isnan(moved.last_price[1])
+    with pytest.raises(ValueError):
+        EngineState.from_dict(st.to_dict(), symbols=("BUSDT",))
+
+
+def test_on_close_is_idempotent_per_bar(walk_panel):
+    p = walk_panel
+    eng = Engine(EngineParams(), EngineState.fresh(p.symbols, 1000.0))
+    w = np.full(p.n_symbols, 0.1)
+    for i in range(30):
+        eng.on_close(int(p.times[i]), p.open[i], p.high[i], p.low[i], p.close[i], w)
+    before = (eng.state.last_equity, eng.state.trade_count, eng.state.bars_processed)
+    eng.on_close(int(p.times[29]), p.open[29], p.high[29], p.low[29], p.close[29], w)
+    eng.on_open(int(p.times[29]), p.open[29])
+    assert (eng.state.last_equity, eng.state.trade_count, eng.state.bars_processed) == before
+
+
+def test_day_ledger_compounds_to_final_equity(walk_panel):
+    p = walk_panel
+    rng = np.random.default_rng(11)
+    w = rng.normal(0, 0.3, (p.n_bars, p.n_symbols))
+    res = run_backtest(p, w, EngineParams(kill_dd=None), 2000.0)
+    # The first trading day starts at the initial equity; days chain without gaps.
+    assert 2000.0 * np.prod(1.0 + res.daily_returns) == pytest.approx(res.equity[np.searchsorted(
+        res.equity_ms, res.day_end_ms[-1])], rel=1e-9)
+    assert (res.day_end_ms % 86_400_000 == 0).all()
