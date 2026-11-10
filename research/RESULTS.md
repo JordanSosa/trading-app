@@ -315,7 +315,60 @@ exposure, on margin. Drawdowns in the last two columns are on daily closes.
 * **There is no rising year in the holdout.** How any of this behaves in a
   rally it has not been tuned on is untested.
 
-## 8. Bottom line
+## 8. Would the classic technical indicators do better?
+
+The bot is already purely quantitative: every decision is a formula on
+price, volume and volatility. The textbook indicators are other formulas on
+the same prices, so each was put in the bot's place with its textbook
+parameters and no tuning: same universe, sizing, 1.5% volatility target,
+costs, engine and governor, from 10,000 USDT, on completed daily and 4-hour
+bars (`scripts/research_indicators.py`, `results/indicators.json`). This
+was run after the holdout had been seen; every rule is reported and none
+is selected.
+
+Compound return per day. † = the 40% kill switch fired.
+
+| Rule (textbook settings) | Bets on | Daily bars, in-sample | Daily bars, out-of-sample | 4-hour bars, in-sample | 4-hour bars, out-of-sample |
+|---|---|---:|---:|---:|---:|
+| **The bot** | continuation | **+0.118%** | **+0.050%** | | |
+| SMA 50/200 crossover | continuation | -0.005%† | 0.000% | +0.059% | +0.042% |
+| MACD (12, 26, 9) | continuation | +0.081% | -0.075%† | -0.020%† | -0.035% |
+| Donchian 20/10 breakout | continuation | +0.057% | -0.019% | +0.033% | -0.031% |
+| Supertrend (10, 3) | continuation | +0.022% | +0.053% | +0.018%† | -0.039% |
+| Ichimoku cloud (9, 26, 52) | continuation | +0.017% | +0.047% | +0.059% | +0.067% |
+| RSI(14) above / below 50 | continuation | +0.023% | +0.028% | +0.047% | -0.069%† |
+| Bollinger (20, 2) breakout | continuation | +0.039% | +0.031% | +0.032% | +0.003% |
+| Vote of the first five | continuation | +0.055% | -0.009% | +0.062% | +0.025% |
+| RSI(14) 30 / 70 | reversal | -0.020%† | -0.062% | -0.029%† | -0.058% |
+| Bollinger (20, 2) fade | reversal | -0.022%† | -0.048% | -0.030%† | -0.058% |
+| Stochastic (14, 3) 20 / 80 | reversal | -0.030%† | -0.059%† | -0.026%† | -0.049% |
+
+* **None of the 22 beat the bot in-sample; two beat it out of sample**
+  (Ichimoku on 4-hour bars, +56% in total, and Supertrend on daily bars,
+  +42%, against the bot's +39.8%). The bot ranks third of 23 out of sample.
+* **Which two could not have been known in advance.** Among the 16
+  continuation rules the rank correlation between in-sample and
+  out-of-sample results is -0.01. The best in-sample rule, daily MACD, was
+  the worst out of sample and hit the kill switch. The same indicator often
+  flipped with the bar size: Supertrend made +42% on daily bars and lost
+  23% on 4-hour bars.
+* **Every "oversold / overbought" rule lost in both periods**, and the kill
+  switch fired in seven of those twelve runs. Buying what has fallen and
+  selling what has risen is the opposite bet to the one that has paid in
+  this market; the indicator used to place it makes no difference.
+* **Continuation rules were a coin flip individually**: eight of 16 made
+  money in both periods, seven lost out of sample, and the median
+  out-of-sample result was +1%.
+
+An indicator is not information the market lacks. Each one sorts into one of
+two bets, that moves continue or that they reverse, and the result depends
+on which bet it is, how often it trades and what that costs. What separates
+the bot from the single rules in this table is construction rather than a
+better formula: it averages five horizons instead of committing to one,
+sizes in proportion to the signal instead of all-in and all-out, and adds a
+cross-sectional sleeve.
+
+## 9. Bottom line
 
 A daily target of 2% compounding is 1,377x a year. On the evidence here a
 robust, risk-governed strategy on liquid crypto perpetuals compounds at
