@@ -301,9 +301,9 @@ exposure, on margin. Drawdowns in the last two columns are on daily closes.
   months it made +7.0% and +4.3% against +18.9% and +9.3%. It wins the bad
   months by not losing them.
 * **More risk does not close the gap.** At twice the risk the bot beat
-  Bitcoin over the tuned period and in three of its five years, then hit
-  the kill switch out of sample and ended 34% down, behind Bitcoin in a
-  falling market.
+  Bitcoin over the tuned period as a whole but in only one of its four
+  rising years (2021), then hit the kill switch out of sample and ended 34%
+  down, behind Bitcoin in a falling market.
 * **Timing Bitcoin directly is worse than either.** The same rules on
   Bitcoin alone lagged in every rising year and lost in 2022 and 2025.
 * **The only column ahead in every rising year is the one that owns
