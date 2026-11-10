@@ -78,8 +78,9 @@ market data ──► strategy ──► risk governor ──► engine ──�
   are excluded.
 * **Signal.** For each symbol, the average of its 2, 4, 8, 16 and 32-day
   returns, each measured in units of its own volatility and clipped to
-  ±1 (trend), plus its rank among the 20 by 14-day return (cross-sectional
-  momentum). Positive means long, negative means short at half size.
+  ±1 (trend), plus its rank among the 20 by volatility-adjusted 14-day
+  return (cross-sectional momentum). Positive means long, negative means
+  short at half size.
 * **Sizing.** Weights are inversely proportional to each symbol's
   volatility and scaled so the whole portfolio targets a fixed **daily
   volatility** (`strategy.target_vol`, 1.5% by default). That number is the
@@ -109,9 +110,12 @@ market data ──► strategy ──► risk governor ──► engine ──�
 | Data cross-check | 2% | Refuses to trade if the venue's prices disagree with a second venue |
 | Daily profit target | 2%, measured | Reported every day; **not** used to close winners (doing so turned the out-of-sample gain into a loss) |
 
-The kill switch cannot be disabled. It is the reason the account cannot be
-run to zero by the strategy alone; it does not protect against an exchange
-failing, a price gap through the stops, or a bug.
+The kill switch cannot be disabled. It bounds how far a failing strategy
+can take the account down, but only as fast as an hourly check can act. At
+volatility targets up to 8% a day (five times the default) every test run
+that reached it ended 40.1% to 40.4% below its peak; at 10% to 20% a day a
+single hour took the account 45% to 59% down first. It does not protect
+against an exchange failing or a bug.
 
 ## Quick start: paper trading
 
