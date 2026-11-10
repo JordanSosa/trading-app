@@ -19,7 +19,8 @@ from compounder.metrics import daily_stats, ruin_report
 from compounder.strategy import compute_targets
 
 KEEP = ("days", "compound_daily", "mean_daily", "total_return", "cagr", "sharpe", "sortino", "daily_vol",
-        "max_drawdown", "engine_max_drawdown", "pct_days_at_target", "pct_days_up", "pct_days_down", "best_day",
+        "max_drawdown", "engine_max_drawdown", "pct_days_at_target", "pct_days_below_minus_target", "pct_days_up",
+        "pct_days_down", "best_day",
         "worst_day", "p05_day", "p95_day", "avg_gross", "avg_net", "max_gross", "trades", "stops", "turnover_per_day",
         "fees_paid", "funding_paid", "days_target_hit", "days_loss_limit", "killed", "liquidated", "initial_equity",
         "final_equity", "by_year", "by_month", "longest_drawdown_days", "avg_risk_mult")

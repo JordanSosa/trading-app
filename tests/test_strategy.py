@@ -146,3 +146,62 @@ def test_parameter_validation():
         StrategyParams(vol_mode="other")
     with pytest.raises(ValueError):
         StrategyParams(rho=1.5)
+
+
+def test_production_configuration_has_no_look_ahead_end_to_end():
+    """Perturb everything from bar k onward: weights and engine equity before k must not move."""
+    from compounder.backtest import run_backtest
+    from compounder.config import DEFAULT_STRATEGY, load_config
+    from compounder.data.panel import Panel
+
+    t, n, k = 2500, 30, 2000
+    rng = np.random.default_rng(77)
+    close = random_walk(t, n, vol=0.012, seed=77)
+    funding = np.zeros((t, n))
+    funding[7::8] = rng.normal(0.0001, 0.0003, (len(range(7, t, 8)), n))
+    rank = np.zeros((t, n), dtype="int16")
+    for start in range(0, t, 168):                                   # the universe reshuffles every week
+        rank[start:start + 168] = rng.permutation(n) + 1
+    base = make_panel(close, funding=funding, wick=0.004, rank=rank)
+
+    shocked = {f: getattr(base, f).copy() for f in ("open", "high", "low", "close", "quote_volume", "funding")}
+    for f in ("open", "high", "low", "close"):
+        shocked[f][k:] *= rng.uniform(0.5, 2.0, (t - k, n))
+    shocked["high"][k:] = np.maximum(shocked["high"][k:], np.maximum(shocked["open"][k:], shocked["close"][k:]))
+    shocked["low"][k:] = np.minimum(shocked["low"][k:], np.minimum(shocked["open"][k:], shocked["close"][k:]))
+    shocked["funding"][k:] *= -3.0
+    rank2 = rank.copy()
+    rank2[k:] = rank[k:][:, ::-1]
+    other = Panel(**{**base.__dict__, **shocked, "rank": rank2})
+
+    params = DEFAULT_STRATEGY
+    a, b = compute_targets(base, params), compute_targets(other, params)
+    assert np.array_equal(a.weights[:k], b.weights[:k])
+    assert np.array_equal(a.stop_frac[:k], b.stop_frac[:k], equal_nan=True)
+    assert not np.allclose(a.weights[k + 50:], b.weights[k + 50:])     # the shock does change the future
+
+    ep = load_config(None).engine_params()
+    ra = run_backtest(base, a.weights, ep, 10_000.0, stop_frac=a.stop_frac)
+    rb = run_backtest(other, b.weights, ep, 10_000.0, stop_frac=b.stop_frac)
+    # Bar k-1's close decides an order that fills at bar k's (shocked) open: equity agrees through k-1.
+    assert np.array_equal(ra.equity[:k], rb.equity[:k])
+    assert ra.equity[-1] != rb.equity[-1]
+
+
+def test_pure_noise_earns_nothing_but_costs():
+    """On driftless random walks the strategy has no edge.
+
+    Single runs scatter by tens of percent, so this only catches a gross leak
+    (one would show up as hundreds of percent); the exact check is the
+    perturbation test above.
+    """
+    from compounder.backtest import run_backtest
+    from compounder.config import DEFAULT_STRATEGY, load_config
+
+    finals = []
+    for seed in (1, 2, 3, 4):
+        p = make_panel(random_walk(6000, 20, vol=0.01, seed=seed), wick=0.003)
+        tg = compute_targets(p, DEFAULT_STRATEGY)
+        res = run_backtest(p, tg.weights, load_config(None).engine_params(), 10_000.0, stop_frac=tg.stop_frac)
+        finals.append(res.state.last_equity / 10_000.0 - 1.0)
+    assert -0.60 < np.mean(finals) < 0.10

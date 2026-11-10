@@ -183,6 +183,8 @@ def test_refuses_accounts_it_should_not_trade():
     ex = FakeExchange(PX, balance=1_000_000.0)
     with pytest.raises(BrokerError, match="max_account_equity"):
         attached(ex)
+    with pytest.raises(BrokerError, match="below the 100 USDT minimum"):
+        attached(FakeExchange(PX, balance=60.0))
     ex = FakeExchange({**PX, "ZUSDT": 5.0}, balance=1000.0)
     ex.create_order(ccxt_symbol("ZUSDT"), "market", "buy", 100.0)
     with pytest.raises(BrokerError, match="not tracking"):

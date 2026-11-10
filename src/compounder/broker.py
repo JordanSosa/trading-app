@@ -29,7 +29,7 @@ from typing import Any
 
 import numpy as np
 
-from .config import Config, ConfigError
+from .config import MIN_DEPOSIT, Config, ConfigError
 from .engine import Engine
 from .errors import BrokerError
 
@@ -163,6 +163,9 @@ class LiveBroker:
             raise BrokerError(f"account equity {equity:,.2f} USDT exceeds live.max_account_equity "
                               f"({self.cfg.live.max_account_equity:,.2f}); refusing to trade it")
         pos = self.positions()
+        if equity < MIN_DEPOSIT and not pos:
+            raise BrokerError(f"account equity {equity:,.2f} USDT is below the {MIN_DEPOSIT:.0f} USDT minimum: "
+                              "positions would fall under the exchange's minimum order sizes")
         unknown = [sym for sym in pos if sym not in s.symbols]
         if unknown:
             raise BrokerError(f"positions in symbols the bot is not tracking: {unknown}; close them or let the "

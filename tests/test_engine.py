@@ -311,3 +311,26 @@ def test_day_ledger_compounds_to_final_equity(walk_panel):
     assert 2000.0 * np.prod(1.0 + res.daily_returns) == pytest.approx(res.equity[np.searchsorted(
         res.equity_ms, res.day_end_ms[-1])], rel=1e-9)
     assert (res.day_end_ms % 86_400_000 == 0).all()
+
+
+def test_live_mode_engine_does_not_simulate_what_the_exchange_does():
+    """simulate=False: no simulated fills, stops, funding or liquidation; decisions are still made."""
+    px = np.array([100.0, 100.0, 100.0, 60.0, 60.0])
+    funding = np.zeros((5, 1))
+    funding[2] = 0.01
+    p = make_panel(px, funding=funding)
+    st = EngineState.fresh(p.symbols, 1000.0)
+    st.qty[0] = 5.0                       # a 500 USDT long mirrored from the exchange
+    st.cash = 500.0
+    st.entry_price[0] = 100.0
+    st.stop_price[0] = 90.0
+    st.pending = np.array([2.0])          # a stale order the broker never sent
+    eng = Engine(free_params(), st, simulate=False)
+    for i in range(5):
+        eng.on_close(int(p.times[i]), p.open[i], p.high[i], p.low[i], p.close[i], np.array([0.5]),
+                     np.array([0.1]), p.funding[i])
+    assert st.qty[0] == 5.0               # the 40% drop did not trigger a simulated stop or any fill
+    assert st.trade_count == 0 and st.stop_count == 0 and st.funding_paid == 0.0
+    assert st.last_equity == pytest.approx(500.0 + 5.0 * 60.0)
+    assert st.pending is not None and st.pending[0] == pytest.approx(0.5)   # the next decision is ready
+    assert eng.plan(np.array([60.0])) == [(0, pytest.approx(0.5 * 800.0 - 300.0))]
