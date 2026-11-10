@@ -233,44 +233,56 @@ class Engine:
         return fee
 
     # ------------------------------------------------------------------- open
+    def plan(self, prices: np.ndarray) -> list[tuple[int, float]]:
+        """Orders that move the account from its positions to the pending weights.
+
+        Returns ``(symbol index, signed USDT notional to trade)`` pairs, sells
+        first. Pure: nothing is changed. The paper engine fills these itself
+        (:meth:`on_open`); a live broker sends them to the exchange.
+        """
+        s, p = self.state, self.params
+        if s.pending is None:
+            return []
+        w = s.pending
+        tradable = np.isfinite(prices) & (prices > 0)
+        mark = np.where(tradable, prices, s.last_price)
+        held = s.qty != 0.0
+        equity = float(s.cash + (s.qty[held] * mark[held]).sum())
+        if equity <= 0:
+            return []
+        cur = np.where(held, s.qty * np.where(np.isfinite(mark), mark, 0.0), 0.0)
+        desired = np.where(tradable, w * equity, cur)
+        floor = p.min_notional * p.min_position_mult
+        # A reversal too small to open the other side just closes the position.
+        flip = (cur * desired) < 0.0
+        desired = np.where(flip & (np.abs(desired) < floor), 0.0, desired)
+        delta = desired - cur
+        size = np.maximum(np.abs(desired), np.abs(cur))
+        exit_ = (desired == 0.0) & (cur != 0.0)
+        opening = (cur == 0.0) & (desired != 0.0)
+        go = tradable & (np.abs(delta) > 1e-9) & (
+            exit_ | flip
+            | (opening & (np.abs(desired) >= floor))
+            | (~opening & ~exit_ & (np.abs(delta) >= np.maximum(p.min_notional, p.rebalance_band * size))))
+        idx = np.nonzero(go)[0]
+        return [(int(j), float(delta[j])) for j in sorted(idx, key=lambda k: delta[k])]
+
     def on_open(self, ts_ms: int, open_px: np.ndarray) -> None:
-        """Execute the pending target weights at this bar's open."""
+        """Execute the pending target weights at this bar's open (simulated fills)."""
         s, p = self.state, self.params
         if s.last_open_ms is not None and ts_ms <= s.last_open_ms:
             return
         s.last_open_ms = ts_ms
         if s.pending is None:
             return
-        w, stop_frac, reason = s.pending, s.pending_stop, s.pending_reason or "signal"
+        orders = self.plan(open_px)
+        stop_frac, reason = s.pending_stop, s.pending_reason or "signal"
         s.pending = None
         s.pending_stop = None
-        tradable = np.isfinite(open_px) & (open_px > 0)
-        mark = np.where(tradable, open_px, s.last_price)
-        held = s.qty != 0.0
-        equity = float(s.cash + (s.qty[held] * mark[held]).sum())
-        if equity <= 0:
-            return
-        cur = np.where(held, s.qty * np.where(np.isfinite(mark), mark, 0.0), 0.0)
-        desired = np.where(tradable, w * equity, cur)
-        delta = desired - cur
-        size = np.maximum(np.abs(desired), np.abs(cur))
-        exit_ = (desired == 0.0) & (cur != 0.0)
-        opening = (cur == 0.0) & (desired != 0.0)
-        flip = (cur * desired) < 0.0
-        go = tradable & (np.abs(delta) > 1e-9) & (
-            exit_ | flip
-            | (opening & (np.abs(desired) >= p.min_notional * p.min_position_mult))
-            | (~opening & ~exit_ & (np.abs(delta) >= np.maximum(p.min_notional, p.rebalance_band * size))))
-        idx = np.nonzero(go)[0]
-        if not len(idx):
-            return
-        # Sells first so that a spot account has the cash for its buys.
-        for j in sorted(idx, key=lambda k: delta[k]):
+        for j, d in orders:
             px = float(open_px[j])
-            d = float(delta[j])
-            if flip[j] and abs(desired[j]) < p.min_notional * p.min_position_mult:
-                d = -float(cur[j])                       # too small to reverse into: just close
             if not p.allow_short and d > 0:
+                # Spot: a buy is limited by the cash actually available.
                 d = min(d, max(0.0, s.cash / (1.0 + p.slippage) / (1.0 + p.fee_rate)))
                 if d < p.min_notional:
                     continue
@@ -279,11 +291,14 @@ class Engine:
             self._book(ts_ms, j, d / px, fill, reason)
             now = s.qty[j]
             if now != 0.0 and (was == 0.0 or (was > 0) != (now > 0)):
-                sf = float(stop_frac[j]) if stop_frac is not None else math.nan
-                if math.isfinite(sf) and sf > 0:
-                    s.stop_price[j] = fill * (1.0 - sf) if now > 0 else fill * (1.0 + sf)
-                else:
-                    s.stop_price[j] = np.nan
+                s.stop_price[j] = self.stop_for(j, fill, now, stop_frac)
+
+    def stop_for(self, j: int, fill: float, qty: float, stop_frac: np.ndarray | None) -> float:
+        """Protective stop price for a position just opened at ``fill`` (NaN = none)."""
+        sf = float(stop_frac[j]) if stop_frac is not None else math.nan
+        if not (math.isfinite(sf) and sf > 0):
+            return math.nan
+        return fill * (1.0 - sf) if qty > 0 else fill * (1.0 + sf)
 
     # ------------------------------------------------------------------ close
     def on_close(self, ts_ms: int, open_px: np.ndarray, high: np.ndarray, low: np.ndarray, close: np.ndarray,
@@ -452,19 +467,36 @@ class Engine:
     def _concentrate(self, w: np.ndarray, equity: float) -> np.ndarray:
         """Small accounts cannot hold many positions above the venue minimum.
 
-        Keep the largest weights whose notional clears the minimum position size
-        and drop the rest, so the capital is not silently left idle.
+        When some target positions would be smaller than the minimum position
+        size, keep only the largest weights and scale them up to the same gross
+        exposure, so the account stays invested in the strongest signals
+        instead of holding nothing. Symbols already held are preferred, which
+        stops two similar weights from swapping places every bar.
         """
         p = self.params
         floor = p.min_notional * p.min_position_mult
-        if equity <= 0 or floor <= 0:
+        absw = np.abs(w)
+        live = absw > 0
+        n = int(live.sum())
+        if equity <= 0 or floor <= 0 or n == 0:
             return w
-        notional = np.abs(w) * equity
-        small = (notional > 0) & (notional < floor) & (self.state.qty == 0.0)
-        if not small.any():
+        if float(absw[live].min()) * equity >= floor:
             return w
-        out = w.copy()
-        out[small] = 0.0
+        gross = float(absw.sum())
+        if gross * equity < floor:
+            return np.zeros_like(w)                     # cannot afford even one position
+        priority = absw * np.where(self.state.qty != 0.0, 1.5, 1.0)
+        order = np.argsort(-priority, kind="stable")[:n]
+        csum = np.cumsum(absw[order])
+        out = np.zeros_like(w)
+        for k in range(n, 0, -1):
+            kept = order[:k]
+            scale = gross / float(csum[k - 1])
+            if float(absw[kept].min()) * scale * equity >= floor:
+                out[kept] = np.clip(w[kept] * scale, -p.max_weight, p.max_weight)
+                return out
+        j = order[0]
+        out[j] = np.clip(np.sign(w[j]) * gross, -p.max_weight, p.max_weight)
         return out
 
     # ------------------------------------------------------------------ manual

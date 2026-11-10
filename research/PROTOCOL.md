@@ -111,3 +111,18 @@ ruin probabilities. Plus the doubled-cost run and a no-governor run.
 The number of configurations searched is stated next to the selected one.
 In-sample figures are inflated by that search; the HOLDOUT figure is the one
 to believe, and it covers a single 22-month market regime.
+
+## Amendment 1 (after stage 1 on TRAIN, before anything else was run)
+
+Stage 1 showed that every family has a positive result before costs and that
+hourly re-targeting destroys it: the fast trend and cross-sectional signals
+turn their whole book over two to seven times a day, which at 8 bps a side
+costs far more than they earn. The only turnover control in the original
+search space was the no-trade band. Two more are added, to be chosen on TRAIN
+exactly like the other sizing variants:
+
+* decision cadence: targets are re-evaluated every {1, 4, 8, 24} hours on the
+  UTC grid and held in between (stops and the risk governor still act hourly);
+* weight smoothing: targets are averaged over the last {1, 12, 24} hours.
+
+Nothing else changes. VALID and HOLDOUT are still untouched at this point.

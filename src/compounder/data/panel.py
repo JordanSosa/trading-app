@@ -81,7 +81,8 @@ class Panel:
 
 
 def build_panel(interval_ms: int, klines: dict[str, np.ndarray], funding: dict[str, np.ndarray] | None = None,
-                start_ms: int | None = None, end_ms: int | None = None) -> Panel:
+                start_ms: int | None = None, end_ms: int | None = None,
+                symbols: list[str] | tuple[str, ...] | None = None) -> Panel:
     """Align per-symbol kline arrays (archive column order) on a common regular grid.
 
     ``klines[symbol]`` has columns open_ms, open, high, low, close, volume,
@@ -89,11 +90,14 @@ def build_panel(interval_ms: int, klines: dict[str, np.ndarray], funding: dict[s
     settlement_ms, rate; a settlement at time ``f`` is booked on the bar that
     closes at ``f`` (positions held through that close pay or receive it).
     """
-    symbols = tuple(sorted(s for s, a in klines.items() if len(a)))
-    if not symbols:
+    with_data = sorted(s for s, a in klines.items() if len(a))
+    if not with_data:
         raise ValueError("no kline data")
-    lo = min(int(klines[s][0, 0]) for s in symbols)
-    hi = max(int(klines[s][-1, 0]) for s in symbols)
+    # An explicit symbol list keeps a column (all NaN) for symbols without data,
+    # so an open position in a symbol whose feed failed is not silently dropped.
+    symbols = tuple(sorted(set(symbols))) if symbols is not None else tuple(with_data)
+    lo = min(int(klines[s][0, 0]) for s in with_data)
+    hi = max(int(klines[s][-1, 0]) for s in with_data)
     if start_ms is not None:
         lo = max(lo, start_ms - start_ms % interval_ms)
     if end_ms is not None:
@@ -103,7 +107,9 @@ def build_panel(interval_ms: int, klines: dict[str, np.ndarray], funding: dict[s
     out = {f: np.full((t, n), np.nan) for f in PRICE_FIELDS}
     out.update({f: np.zeros((t, n)) for f in ("quote_volume", "taker_quote", "funding")})
     for j, sym in enumerate(symbols):
-        a = klines[sym]
+        a = klines.get(sym)
+        if a is None or not len(a):
+            continue
         pos = ((a[:, 0].astype("int64") - lo) // interval_ms).astype("int64")
         ok = (pos >= 0) & (pos < t) & (a[:, 4] > 0) & (a[:, 1] > 0)
         pos = pos[ok]
@@ -123,16 +129,27 @@ def build_panel(interval_ms: int, klines: dict[str, np.ndarray], funding: dict[s
     return Panel(interval_ms=interval_ms, times=times, symbols=symbols, rank=np.zeros((t, n), dtype="int16"), **out)
 
 
+REFRESH_ANCHOR_MS = 4 * DAY_MS   # 1970-01-05 00:00 UTC, a Monday: weekly refreshes fall on Mondays
+
+
+def refresh_instant(t_ms: int, refresh_days: int) -> int:
+    """The latest universe refresh instant at or before ``t_ms``."""
+    step = refresh_days * DAY_MS
+    return t_ms - (t_ms - REFRESH_ANCHOR_MS) % step
+
+
 def liquidity_rank(times: np.ndarray, quote_volume: np.ndarray, close: np.ndarray, interval_ms: int,
                    window_days: int = 30, min_history_days: int = 30, refresh_days: int = 7,
                    exclude: np.ndarray | None = None) -> np.ndarray:
     """Point-in-time liquidity rank per bar.
 
-    At every refresh instant (every ``refresh_days`` on the UTC-day grid) symbols
-    are ranked by their mean daily USDT volume over the previous ``window_days``
-    complete days. A symbol needs ``min_history_days`` of bars before it can be
-    ranked. The rank computed at instant ``r`` applies to bars opening in
-    ``[r, next refresh)``, and uses only bars that closed at or before ``r``.
+    At every refresh instant (every ``refresh_days`` days, anchored so that a
+    7-day cycle refreshes on Monday 00:00 UTC) symbols are ranked by their mean
+    daily USDT volume over the previous ``window_days`` complete days. A symbol
+    must have been listed for ``min_history_days`` (and have bars for at least
+    90% of them) before it can be ranked. The rank computed at instant ``r``
+    applies to bars opening in ``[r, next refresh)`` and uses only bars that
+    closed at or before ``r``.
     """
     t, n = quote_volume.shape
     per_day = DAY_MS // interval_ms
@@ -142,8 +159,9 @@ def liquidity_rank(times: np.ndarray, quote_volume: np.ndarray, close: np.ndarra
     csum_v = np.vstack([np.zeros((1, n)), np.cumsum(np.where(have, quote_volume, 0.0), axis=0)])
     csum_h = np.vstack([np.zeros((1, n), dtype="int64"), np.cumsum(have, axis=0)])
     rank = np.zeros((t, n), dtype="int16")
+    first_bar = np.where(have.any(axis=0), np.argmax(have, axis=0), t)
     w, mh, step = window_days * per_day, min_history_days * per_day, refresh_days * DAY_MS
-    first_refresh = times[0] - times[0] % step + step
+    first_refresh = refresh_instant(int(times[0]), refresh_days) + step
     current = np.zeros(n, dtype="int16")
     refresh_at = first_refresh
     excl = np.zeros(n, dtype=bool) if exclude is None else exclude
@@ -154,7 +172,7 @@ def liquidity_rank(times: np.ndarray, quote_volume: np.ndarray, close: np.ndarra
             seen = csum_h[i] - csum_h[max(0, i - mh)]
             # Listed for the whole history window and still trading in the last day.
             alive = (csum_h[i] - csum_h[max(0, i - per_day)]) > 0
-            ok = (seen >= int(mh * 0.9)) & alive & (vol > 0) & ~excl
+            ok = (first_bar <= i - mh) & (seen >= int(mh * 0.9)) & alive & (vol > 0) & ~excl
             current = np.zeros(n, dtype="int16")
             order = np.argsort(-np.where(ok, vol, -1.0), kind="stable")
             k = int(ok.sum())

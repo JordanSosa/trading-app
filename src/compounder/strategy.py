@@ -63,6 +63,9 @@ class StrategyParams:
     risk_budget: float = 0.004           # budget mode: daily risk per symbol at full signal
     rho: float = 0.7                     # assumed pairwise correlation between symbols
     max_symbol_risk: float = 0.5         # target mode: cap on one symbol's share of the risk target
+    rebalance_every: int = 1             # re-evaluate targets only every N bars (on the UTC grid)
+    rebalance_phase: int = 0             # shift of that grid in bars (0 = decisions at 00:00 UTC)
+    smooth_bars: int = 1                 # average the target weights over the last N bars
     stop_vol_mult: float = 3.0           # protective stop distance in daily volatilities (0 = no stop)
     stop_min: float = 0.03               # bounds on the stop distance as a fraction of price
     stop_max: float = 0.25
@@ -74,6 +77,8 @@ class StrategyParams:
             raise ValueError("vol_mode must be 'target' or 'budget'")
         if self.universe_n < 1:
             raise ValueError("universe_n must be >= 1")
+        if self.rebalance_every < 1 or self.smooth_bars < 1:
+            raise ValueError("rebalance_every and smooth_bars must be >= 1")
         if not 0 <= self.rho <= 1:
             raise ValueError("rho must be in [0, 1]")
         object.__setattr__(self, "trend_horizons", tuple(int(h) for h in self.trend_horizons))
@@ -91,7 +96,7 @@ class StrategyParams:
             need.append(self.reversal_trend + self.reversal_hold + 1)
         if self.xsmom_weight:
             need.append(self.xsmom_lookback + 1)
-        return int(max(need)) + self.vol_window
+        return int(max(need)) + self.vol_window + (self.rebalance_every - 1) + (self.smooth_bars - 1)
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -157,6 +162,23 @@ def xsmom_score(close: np.ndarray, vol: np.ndarray, member: np.ndarray, p: Strat
     return sg.cross_rank(z, member)
 
 
+def hold_between_decisions(weights: np.ndarray, times: np.ndarray, interval_ms: int, every: int,
+                           phase: int = 0) -> np.ndarray:
+    """Keep each row equal to the row of the latest decision bar.
+
+    A decision bar is one whose close falls on the ``every``-bar UTC grid,
+    shifted by ``phase`` bars (every = 8, phase = 0: the bars closing at 00:00,
+    08:00 and 16:00 UTC). Rows before the first decision bar are zero.
+    """
+    closes = (times + interval_ms) // interval_ms
+    is_decision = closes % every == phase % every
+    idx = np.arange(len(times))
+    last = np.maximum.accumulate(np.where(is_decision, idx, -1))
+    out = weights[np.maximum(last, 0)]
+    out[last < 0] = 0.0
+    return out
+
+
 def compute_targets(panel: Panel, p: StrategyParams, keep_parts: bool = False) -> Targets:
     close = panel.close
     hvol = sg.realised_vol(close, p.vol_window)
@@ -205,6 +227,13 @@ def compute_targets(panel: Panel, p: StrategyParams, keep_parts: bool = False) -
             unit = np.where(pv > 0, p.target_vol / pv, 0.0)
         unit = np.minimum(unit, p.max_symbol_risk * p.target_vol)
     weights = raw * unit[:, None]
+    if p.smooth_bars > 1:
+        # Average the targets over the last few bars: filters hour-to-hour noise in
+        # the scores and in the volatility scaling, which is what drives turnover.
+        weights = np.nan_to_num(sg.rolling_mean(weights, p.smooth_bars, p.smooth_bars))
+    if p.rebalance_every > 1:
+        weights = hold_between_decisions(weights, panel.times, panel.interval_ms, p.rebalance_every,
+                                         p.rebalance_phase)
     port_vol = sg.portfolio_vol(weights, dvol, p.rho)
 
     if p.stop_vol_mult > 0:
