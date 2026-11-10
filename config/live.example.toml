@@ -74,8 +74,8 @@ on_alert = true
 daily_summary = true
 
 [live]
-exchange = "okx"            # ccxt exchange id; keys come from COMPOUNDER_API_KEY / _API_SECRET / _API_PASSWORD
-sandbox = true              # exchange demo/testnet environment
+exchange = "okx"            # the only supported venue; keys come from COMPOUNDER_API_KEY / _API_SECRET / _API_PASSWORD
+sandbox = true              # OKX demo trading environment
 dry_run = true              # log the orders that would be sent, send nothing
 margin_mode = "cross"
 leverage = 5                # leverage set per contract: a ceiling for margin, not a target (risk.max_gross caps exposure)

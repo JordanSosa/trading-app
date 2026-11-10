@@ -123,6 +123,15 @@ def test_full_exit_leaves_no_dust_and_cancels_the_stop():
     broker.execute(6_000)
     assert not ex.pos and not ex.stops
     assert eng.state.qty[0] == 0.0 and np.isnan(eng.state.stop_price[0])
+    # Closing a position on purpose is not a stop-out: nothing is blocked, nothing is counted.
+    assert eng.state.blocked[0] == 0.0 and eng.state.stop_count == 0
+
+
+def test_only_okx_is_supported_for_live_trading():
+    from compounder.broker import make_live_broker
+    from compounder.config import ConfigError
+    with pytest.raises(ConfigError, match="not supported"):
+        make_live_broker(live_cfg(exchange="binanceusdm"), env={})
 
 
 def test_stop_filled_on_the_exchange_is_detected_and_blocks_reentry():

@@ -141,7 +141,8 @@ class FakeExchange:
             raise RuntimeError("exchange rejected the order")
         if "stopLossPrice" in params:
             order = {"id": str(self._id), "symbol": symbol, "side": side, "amount": float(amount),
-                     "triggerPrice": float(params["stopLossPrice"]), "reduceOnly": True}
+                     "stopLossPrice": float(params["stopLossPrice"]), "triggerPrice": float(params["stopLossPrice"]),
+                     "reduceOnly": bool(params.get("reduceOnly"))}
             self.stops.append(order)
             return order
         signed = float(amount) * (1.0 if side == "buy" else -1.0) * self.size_bug
@@ -170,6 +171,8 @@ class FakeExchange:
         return order
 
     def fetch_open_orders(self, symbol=None, since=None, limit=None, params=None):
+        if (params or {}).get("ordType") != "conditional":
+            return []                                 # stops live in the conditional-order book, as on OKX
         return [o for o in self.stops if symbol is None or o["symbol"] == symbol]
 
     def cancel_order(self, id_, symbol=None, params=None):

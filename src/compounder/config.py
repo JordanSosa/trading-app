@@ -111,7 +111,7 @@ class NotifyConfig:
 
 @dataclass(frozen=True)
 class LiveConfig:
-    exchange: str = "okx"            # ccxt exchange id
+    exchange: str = "okx"            # ccxt exchange id (OKX is the only supported venue)
     sandbox: bool = True             # use the exchange's demo/testnet environment
     dry_run: bool = True             # log orders instead of sending them
     margin_mode: str = "cross"

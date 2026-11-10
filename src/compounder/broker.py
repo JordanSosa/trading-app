@@ -14,9 +14,9 @@ command carried ``--i-understand-live-trading``. Every order is checked
 against hard limits first, and the account is re-read afterwards: a position
 far larger than intended is closed and the kill switch is set.
 
-Supported: USDT-margined perpetual swaps in one-way (net) position mode.
-The adapter is written against ccxt's unified API and is exercised in the
-test suite against a simulated exchange only. Run it on the exchange's demo
+Supported: OKX USDT-margined perpetual swaps in one-way (net) position mode,
+in a dedicated account. The adapter is written against ccxt and is exercised
+in the test suite against a simulated exchange only. Run it on OKX's demo
 environment (``live.sandbox = true``) before funding it.
 """
 
@@ -35,8 +35,9 @@ from .errors import BrokerError
 
 log = logging.getLogger(__name__)
 
-SUPPORTED = ("okx", "binanceusdm", "bybit", "gate", "bitget")
-STOP_TAG = "cmpstop"
+# One venue: the order, position and conditional-order semantics below are OKX's.
+# Another exchange needs its own review of every call in this module.
+SUPPORTED = ("okx",)
 
 
 def ccxt_symbol(symbol: str) -> str:
@@ -57,8 +58,8 @@ def make_live_broker(cfg: Config, env: dict[str, str] | None = None) -> "LiveBro
         raise ConfigError("live trading needs the ccxt package: pip install 'compounder[live]'") from exc
     key, secret = env.get("COMPOUNDER_API_KEY"), env.get("COMPOUNDER_API_SECRET")
     if not key or not secret:
-        raise ConfigError("set COMPOUNDER_API_KEY and COMPOUNDER_API_SECRET (and COMPOUNDER_API_PASSWORD for OKX, "
-                          "Bitget) in the environment; never put keys in a config file")
+        raise ConfigError("set COMPOUNDER_API_KEY, COMPOUNDER_API_SECRET and COMPOUNDER_API_PASSWORD in the "
+                          "environment; never put keys in a config file")
     params: dict[str, Any] = {"apiKey": key, "secret": secret, "enableRateLimit": True,
                               "options": {"defaultType": "swap"}}
     if env.get("COMPOUNDER_API_PASSWORD"):
@@ -101,12 +102,7 @@ class LiveBroker:
         total = usdt.get("total")
         if total is None:
             raise BrokerError("the exchange did not report a USDT balance")
-        total = float(total)
-        if self.cfg.live.exchange == "binanceusdm":
-            # Binance reports the wallet balance; unrealised P&L is separate.
-            info = bal.get("info") or {}
-            if info.get("totalMarginBalance") is not None:
-                total = float(info["totalMarginBalance"])
+        total = float(total)          # OKX: "eq", the currency's equity including unrealised P&L
         if not math.isfinite(total) or total < 0:
             raise BrokerError(f"implausible account equity: {total}")
         return total
@@ -153,8 +149,12 @@ class LiveBroker:
     def _event(self, kind: str, message: str) -> None:
         self.events.append({"ts_ms": self.now_ms, "kind": kind, "message": message})
 
-    def sync(self) -> None:
-        """Mirror the exchange account into the engine state (the exchange is the truth)."""
+    def sync(self, closed_on_purpose: frozenset[int] = frozenset()) -> None:
+        """Mirror the exchange account into the engine state (the exchange is the truth).
+
+        A position that has vanished since the last look was closed by its resting
+        stop, unless the bot has just closed it itself (``closed_on_purpose``).
+        """
         eng = self.engine
         assert eng is not None and self.prices is not None
         s = eng.state
@@ -172,7 +172,7 @@ class LiveBroker:
             had = float(s.qty[j])
             p = pos.get(sym)
             now = p["qty"] if p else 0.0
-            if had != 0.0 and now == 0.0 and math.isfinite(s.stop_price[j]):
+            if had != 0.0 and now == 0.0 and math.isfinite(s.stop_price[j]) and j not in closed_on_purpose:
                 # The position vanished between ticks: its resting stop was filled.
                 s.blocked[j] = 1.0 if had > 0 else -1.0
                 s.stop_count += 1
@@ -208,6 +208,7 @@ class LiveBroker:
         # Reductions first: they free margin for the increases.
         orders.sort(key=lambda o: 0 if abs(intended[o[0]] + o[1]) < abs(intended[o[0]]) else 1)
         sent = 0
+        closing: set[int] = set()
         for j, delta in orders:
             sym, px = s.symbols[j], float(self.prices[j])
             m = self.market(sym)
@@ -218,6 +219,7 @@ class LiveBroker:
             target = cur + delta
             legs: list[tuple[float, bool]] = []
             if cur != 0.0 and (target == 0.0 or cur * target < 0):
+                closing.add(j)
                 legs.append((-cur, True))                       # close the whole position, reduce-only
                 if cur * target < 0:
                     legs.append((target, False))                # then open the other side
@@ -243,9 +245,9 @@ class LiveBroker:
                     self._event("info", f"DRY RUN: would {side} {amount:g} contracts of {sym} "
                                 f"(~{abs(notional):,.2f} USDT){' reduce-only' if reduce else ''}")
                     continue
-                params = {"reduceOnly": True} if reduce else {}
-                if lv.exchange == "okx":
-                    params["tdMode"] = lv.margin_mode
+                params: dict[str, Any] = {"tdMode": lv.margin_mode}
+                if reduce:
+                    params["reduceOnly"] = True
                 try:
                     if not reduce:
                         self._prepare(m["symbol"])
@@ -255,7 +257,7 @@ class LiveBroker:
                     self._event("alert", f"{sym}: {side} order failed: {type(exc).__name__}: {exc}")
         if lv.dry_run:
             return
-        self.sync()
+        self.sync(frozenset(closing))
         self._verify(intended, equity)
         # New or reversed positions get the stop the engine assigned at decision time.
         for j in range(len(s.symbols)):
@@ -267,11 +269,14 @@ class LiveBroker:
             self._event("info", f"sent {sent} order(s) to {lv.exchange}")
 
     # ------------------------------------------------------------------ helpers
+    @staticmethod
+    def _lot(market: dict[str, Any]) -> float:
+        return float(((market.get("limits") or {}).get("amount") or {}).get("min") or 0.0)
+
     def _prepare(self, symbol: str) -> None:
         """Set leverage for a contract before opening it (a margin ceiling, not an exposure target)."""
         try:
-            params = {"mgnMode": self.cfg.live.margin_mode} if self.cfg.live.exchange == "okx" else {}
-            self.ex.set_leverage(self.cfg.live.leverage, symbol, params)
+            self.ex.set_leverage(self.cfg.live.leverage, symbol, {"mgnMode": self.cfg.live.margin_mode})
         except Exception as exc:  # noqa: BLE001 - many venues reject a no-op change
             log.debug("set_leverage(%s) ignored: %s", symbol, exc)
 
@@ -307,9 +312,7 @@ class LiveBroker:
         if m is None or s.qty[j] == 0.0:
             return
         contracts = abs(float(s.qty[j])) / float(m.get("contractSize") or 1.0)
-        params = {"reduceOnly": True}
-        if self.cfg.live.exchange == "okx":
-            params["tdMode"] = self.cfg.live.margin_mode
+        params = {"reduceOnly": True, "tdMode": self.cfg.live.margin_mode}
         try:
             self.ex.create_order(m["symbol"], "market", "sell" if s.qty[j] > 0 else "buy",
                                  float(self.ex.amount_to_precision(m["symbol"], contracts)), None, params)
@@ -326,17 +329,20 @@ class LiveBroker:
                 continue
             q, stop = float(s.qty[j]), float(s.stop_price[j])
             try:
-                open_stops = [o for o in self.ex.fetch_open_orders(m["symbol"], None, None, {"stop": True})
-                              if o.get("reduceOnly") or (o.get("info") or {}).get("reduceOnly")]
+                # OKX files a stop-loss as a "conditional" algo order. The account is dedicated
+                # to the bot, so every such order on a tracked symbol is one of its stops.
+                open_stops = list(self.ex.fetch_open_orders(m["symbol"], None, None, {"ordType": "conditional"}))
             except Exception as exc:  # noqa: BLE001
                 self._event("warning", f"{sym}: could not read stop orders: {type(exc).__name__}: {exc}")
                 continue
             contracts = abs(q) / float(m.get("contractSize") or 1.0)
             keep = None
             for o in open_stops:
-                same = (q != 0.0 and math.isfinite(stop)
-                        and abs(float(o.get("amount") or 0.0) - contracts) <= 1e-9 * max(1.0, contracts)
-                        and abs(float(o.get("triggerPrice") or o.get("stopPrice") or 0.0) / stop - 1.0) < 1e-4)
+                trigger = float(o.get("stopLossPrice") or o.get("triggerPrice") or o.get("stopPrice") or 0.0)
+                want_side = "sell" if q > 0 else "buy"
+                same = (q != 0.0 and math.isfinite(stop) and o.get("side") == want_side
+                        and abs(float(o.get("amount") or 0.0) - contracts) <= self._lot(m) * 0.5 + 1e-12
+                        and abs(trigger / stop - 1.0) < 1e-4)
                 if same and keep is None:
                     keep = o
                     continue
@@ -346,9 +352,8 @@ class LiveBroker:
                     self._event("warning", f"{sym}: could not cancel a stale stop: {type(exc).__name__}: {exc}")
             if q == 0.0 or not math.isfinite(stop) or keep is not None:
                 continue
-            params = {"reduceOnly": True, "stopLossPrice": float(self.ex.price_to_precision(m["symbol"], stop))}
-            if lv.exchange == "okx":
-                params["tdMode"] = lv.margin_mode
+            params = {"reduceOnly": True, "tdMode": lv.margin_mode,
+                      "stopLossPrice": float(self.ex.price_to_precision(m["symbol"], stop))}
             try:
                 self.ex.create_order(m["symbol"], "market", "sell" if q > 0 else "buy",
                                      float(self.ex.amount_to_precision(m["symbol"], contracts)), None, params)
