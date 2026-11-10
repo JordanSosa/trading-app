@@ -21,14 +21,18 @@ from .strategy import StrategyParams
 
 TIMEFRAME_MS = {"1h": 3_600_000}
 MIN_DEPOSIT = 100.0
+# Below about this many USDT the exchange's minimum order size, not the risk setting, decides the
+# positions: out of sample such accounts did poorly at every setting (research/RESULTS.md, section 10).
+SMALL_ACCOUNT = 750.0
 
-# The strategy frozen in research/SELECTION.md. A [strategy] section in a config
-# file overrides individual values of this, not of the bare StrategyParams
-# defaults (which are the neutral starting point the research scripts use).
+# The strategy frozen in research/SELECTION.md, at the shipped risk setting: a 1.0% daily
+# volatility target (Amendment 4; the research record was produced at 1.5%, which is kept in
+# config/research.toml). A [strategy] section in a config file overrides individual values of
+# this, not of the bare StrategyParams defaults (the neutral starting point of the research scripts).
 DEFAULT_STRATEGY = StrategyParams(
     universe_n=20, vol_window=336, trend_weight=1.0, trend_horizons=(48, 96, 192, 384, 768),
     trend_response="linear", xsmom_weight=1.0, xsmom_lookback=336, carry_weight=0.0, reversal_weight=0.0,
-    short_scale=0.5, target_vol=0.015, vol_mode="target", rho=0.7, max_symbol_risk=0.5, smooth_bars=12,
+    short_scale=0.5, target_vol=0.010, vol_mode="target", rho=0.7, max_symbol_risk=0.5, smooth_bars=12,
     stop_vol_mult=4.0)
 
 
@@ -77,7 +81,8 @@ class RiskConfig:
     rebalance_band: float = 0.25
     stop_cooldown_bars: int = 0
     stale_bars: int = 48             # settle a position whose market has printed no bar for this many hours
-    daily_target: float = 0.02       # the 2% a day target, measured on every completed day
+    daily_target: float = 0.0        # optional daily yardstick, measured on every completed day (0 = off;
+    #                                  0.02 is the original 2% a day target)
     target_mode: str = "off"         # "off": measure only; "flatten" / "trail": close winners at the target
     trail_giveback: float = 0.5
     daily_loss_limit: float = 0.03
@@ -111,6 +116,14 @@ class NotifyConfig:
 
 
 @dataclass(frozen=True)
+class GoalConfig:
+    """What a run is measured against on the status page. A yardstick only: nothing trades on it."""
+    annual_return: float = 0.12      # the yearly goal (0 = none): about the middle year of the research record
+    drawdown: float = 0.25           # the drawdown to plan for at this risk setting (0 = none): about one year
+    #                                  in five goes deeper. The kill switch is separate (risk.kill_dd).
+
+
+@dataclass(frozen=True)
 class LiveConfig:
     exchange: str = "okx"            # ccxt exchange id (OKX is the only supported venue)
     sandbox: bool = True             # use the exchange's demo/testnet environment
@@ -130,6 +143,7 @@ class Config:
     risk: RiskConfig = field(default_factory=RiskConfig)
     data: DataConfig = field(default_factory=DataConfig)
     notify: NotifyConfig = field(default_factory=NotifyConfig)
+    goal: GoalConfig = field(default_factory=GoalConfig)
     live: LiveConfig = field(default_factory=LiveConfig)
 
     def to_dict(self) -> dict[str, Any]:
@@ -167,7 +181,7 @@ class Config:
 
 _SECTIONS: dict[str, type] = {
     "run": RunConfig, "universe": UniverseConfig, "costs": CostConfig, "strategy": StrategyParams,
-    "risk": RiskConfig, "data": DataConfig, "notify": NotifyConfig, "live": LiveConfig,
+    "risk": RiskConfig, "data": DataConfig, "notify": NotifyConfig, "goal": GoalConfig, "live": LiveConfig,
 }
 
 
@@ -217,6 +231,8 @@ def load_config(path: str | Path | None = None) -> Config:
 
 def validate(cfg: Config) -> None:
     r, u, c, k, d, s, lv = cfg.run, cfg.universe, cfg.costs, cfg.risk, cfg.data, cfg.strategy, cfg.live
+    if not 0 <= cfg.goal.annual_return <= 10 or not 0 <= cfg.goal.drawdown < 1:
+        raise ConfigError("goal.annual_return must be in [0, 10] and goal.drawdown in [0, 1)")
     if r.mode not in ("paper", "live"):
         raise ConfigError("run.mode must be 'paper' or 'live'")
     if r.timeframe not in TIMEFRAME_MS:

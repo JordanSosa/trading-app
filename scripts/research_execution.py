@@ -307,7 +307,7 @@ def show(label: str, rows: dict) -> None:
 
 def main() -> int:
     t0 = time.time()
-    cfg = load_config(ROOT / "config" / "paper.toml")
+    cfg = load_config(ROOT / "config" / "research.toml")
     panel = load_panel()
     if "--check" in sys.argv:
         check(panel, cfg.strategy)

@@ -18,23 +18,49 @@ from conftest import make_panel, random_walk
 ROOT = Path(__file__).resolve().parents[1]
 
 
-@pytest.mark.parametrize("name", ["paper", "aggressive", "spot", "live.example"])
+@pytest.mark.parametrize("name", ["paper", "research", "aggressive", "spot", "live.example"])
 def test_shipped_configs_load(name):
     cfg = load_config(ROOT / "config" / f"{name}.toml")
     assert cfg.universe.size == cfg.strategy.universe_n == 20
     assert cfg.risk.kill_dd == 0.40 and cfg.risk.target_mode == "off"
-    assert cfg.engine_params().daily_target == 0.02
+    # The default and its live twin are measured against a yearly goal; the others keep the 2% a day yardstick.
+    yearly = name in ("paper", "live.example")
+    assert cfg.engine_params().daily_target == (None if yearly else 0.02)
+    assert (cfg.goal.annual_return, cfg.goal.drawdown) == {"paper": (0.12, 0.25), "live.example": (0.12, 0.25),
+                                                           "research": (0.15, 0.35)}.get(name, (0.0, 0.0))
 
 
 def test_default_config_is_the_frozen_configuration():
     cfg = load_config(ROOT / "config" / "paper.toml")
     s, r = cfg.strategy, cfg.risk
     assert s.trend_horizons == (48, 96, 192, 384, 768) and s.xsmom_lookback == 336 and s.smooth_bars == 12
-    assert (s.target_vol, s.short_scale, s.stop_vol_mult, s.carry_weight, s.reversal_weight) == (0.015, 0.5, 4.0, 0, 0)
+    assert (s.target_vol, s.short_scale, s.stop_vol_mult, s.carry_weight, s.reversal_weight) == (0.010, 0.5, 4.0, 0, 0)
     assert (r.daily_loss_limit, r.dd_soft, r.dd_hard, r.min_risk_mult, r.max_gross) == (0.03, 0.15, 0.35, 0.5, 3.0)
     assert load_config(ROOT / "config" / "aggressive.toml").strategy.target_vol == 0.03
     spot = load_config(ROOT / "config" / "spot.toml")
     assert not spot.risk.allow_short and spot.risk.max_gross == 1.0 and spot.strategy.short_scale == 0.0
+
+
+def test_research_config_is_the_default_at_the_research_risk_setting():
+    import dataclasses
+    cfg, res = load_config(ROOT / "config" / "paper.toml"), load_config(ROOT / "config" / "research.toml")
+    assert res.strategy.target_vol == 0.015 and res.risk.daily_target == 0.02
+    # Nothing else differs: the shipped default is the researched strategy at two-thirds of the risk.
+    assert dataclasses.replace(res.strategy, target_vol=cfg.strategy.target_vol) == cfg.strategy
+    assert dataclasses.replace(res.risk, daily_target=cfg.risk.daily_target) == cfg.risk
+    assert (res.costs, res.universe, res.run, res.data) == (cfg.costs, cfg.universe, cfg.run, cfg.data)
+    assert load_config(ROOT / "config" / "live.example.toml").strategy == cfg.strategy
+
+
+def test_goal_is_a_yardstick_outside_the_fingerprint():
+    base = config_from_dict({})
+    assert load_config(ROOT / "config" / "paper.toml").goal == base.goal
+    other = config_from_dict({"goal": {"annual_return": 0.3, "drawdown": 0.1}})
+    assert other.goal.annual_return == 0.3 and other.fingerprint() == base.fingerprint()
+    assert config_from_dict({"goal": {"annual_return": 0, "drawdown": 0}}).goal.annual_return == 0.0
+    for bad in ({"annual_return": -0.1}, {"drawdown": 1.0}, {"drawdown": -0.2}, {"yearly": 0.1}):
+        with pytest.raises(ConfigError):
+            config_from_dict({"goal": bad})
 
 
 def test_built_in_defaults_equal_the_shipped_default_config():

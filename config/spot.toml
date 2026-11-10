@@ -3,7 +3,7 @@
 # For accounts that cannot trade derivatives. Weaker than the default: without shorts it
 # makes nothing in bear markets (-24% in 2022 in research). Paper and backtest only.
 #
-# This is the configuration frozen in research/SELECTION.md. Every key is documented in
+# The strategy frozen in research/SELECTION.md at the research risk setting, long only. Every key is documented in
 # src/compounder/config.py. A running account refuses to continue if strategy, risk,
 # cost or universe settings change (see README: Configuration).
 
@@ -71,3 +71,7 @@ catchup_bars = 168          # a week of downtime is replayed exactly
 on_trade = false
 on_alert = true
 daily_summary = true
+
+[goal]                      # what the status page measures the run against; nothing trades on it
+annual_return = 0.0         # no goal: the research does not support one at this setting
+drawdown = 0.0

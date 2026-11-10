@@ -11,6 +11,11 @@ funding, with the full engine (stops, liquidation model, risk governor).
 "Compound per day" is the constant daily return that compounds to the same
 result: the number to hold against a 2% a day target.
 
+"The default" in sections 1 to 10 is the research configuration,
+`config/research.toml`: a 1.5% daily volatility target. The app now ships
+the same strategy at 1.0% (section 10, "Afterwards: the shipped default";
+Amendment 4 in `SELECTION.md`).
+
 ## 1. Headline
 
 | Default configuration (1.5% daily volatility target) | Development 2020-04 to 2024-12 (in-sample) | **Holdout 2025-01 to 2026-10 (out-of-sample)** |
@@ -78,7 +83,7 @@ Same strategy, same engine, only the volatility target changes. 10,000 USDT.
   final balance. The frequency of good days is not the same thing as
   growth.
 
-This is why the shipped default is half the level the in-sample rule
+This is why the research default is half the level the in-sample rule
 selected (Amendment 2 in `SELECTION.md`), and why the aggressive preset is
 labelled as it is: in the holdout it returned +10.6% from 10,000 USDT with a
 38.7% drawdown, and from 100 USDT it hit the kill switch in March 2025.
@@ -781,11 +786,53 @@ each setting's out-of-sample days (10-day blocks):
   bps a unit traded out of sample; an account that crosses the spread
   pays 8.
 * **A lower risk setting is a choice of drawdown, not a better strategy.**
-  The default stays. The self-audit's reference (section 9) exists for the
-  default only.
+  When this section was written the default stayed at 1.5%. It was lowered
+  afterwards (below), and the self-audit has a reference for each of the
+  two settings.
 * **Execution is the one place where a large improvement is arithmetically
   available, and the simple version does not capture it.** A proper test
   needs minute data or measurement on a live run. It is not built.
+
+### Afterwards: the shipped default
+
+Asked for a recommendation, the answer was to keep the strategy and lower
+the risk. The app's default is now a 1.0% daily volatility target, measured
+against a goal of 12% a year with a planned drawdown of 25%, in place of
+1.5% measured against 2% a day (Amendment 4 in `SELECTION.md`). Nothing
+else changed, and `config/research.toml` keeps the setting of every table
+above.
+
+* **What it buys.** About four-fifths of the return for two-thirds of the
+  drawdown: out of sample +15.9% a year with a 15.1% drawdown from 10,000
+  USDT against +20.1% with 23.2%, and +11.1% with 16.2% from 1,000 USDT
+  against +13.6% with 25.4%. Resampled a year ahead, a drawdown of 25% or
+  more comes in 15% to 23% of years instead of 48% to 55%.
+* **It is not a selection on the holdout.** The lower setting made less
+  there, and from 10,000 USDT the Sharpe ratio is 0.75 to 0.83 at every
+  setting.
+* **The goal is the middle year.** A year of +12% or better comes in 49%
+  (1,000 USDT) to 55% (10,000 USDT) of resampled years, and a losing year
+  in 27% to 33%.
+* **Below about 750 USDT the account size matters more than the setting.**
+  Out of sample, per year and maximum drawdown:
+
+  | Account (USDT) | 1.0% target: per year | Drawdown | 1.5% target: per year | Drawdown |
+  |---:|---:|---:|---:|---:|
+  | 100 | -12.6% | 37.6% | +3.2% | 39.8% |
+  | 200 | -2.5% | 32.8% | -0.3% | 36.1% |
+  | 300 | +7.8% | 25.9% | +14.5% | 28.8% |
+  | 500 | +7.6% | 20.5% | +5.7% | 29.7% |
+  | 750 | +13.3% | 18.2% | +14.2% | 27.4% |
+  | 1,000 | +11.1% | 16.2% | +13.6% | 25.4% |
+  | 2,000 | +14.1% | 15.2% | +24.6% | 23.0% |
+  | 5,000 | +18.4% | 14.8% | +22.0% | 23.2% |
+  | 10,000 | +15.9% | 15.1% | +20.1% | 23.2% |
+
+  Under a few hundred USDT the exchange's minimum order size decides the
+  positions: the drawdown is 26% to 40% whatever the volatility target,
+  and the result is the luck of a handful of positions. The app accepts
+  100 USDT, warns when a paper run starts below 750 and repeats it on the
+  status page.
 
 Sources, read 2026-11-10. [1] Barber, Lee, Liu and Odean, "The
 cross-section of speculator skill: Evidence from day trading", Journal of
@@ -822,6 +869,7 @@ charged.
 What is realistic, on this evidence, is 8% to 20% a year from 10,000 USDT
 depending on the risk setting, with a losing year about one time in four.
 
-The app therefore measures every day against the 2% target and reports it,
-sizes for a 1.5% daily swing, never trades to hit the number, and audits
-its own results without acting on them.
+The app therefore sizes for a 1.0% daily swing, measures a run against a
+goal of 12% a year and against the range the research makes normal for its
+length, never trades to hit a number, and audits its own results without
+acting on them.

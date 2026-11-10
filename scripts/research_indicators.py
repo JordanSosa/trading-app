@@ -266,7 +266,7 @@ def check(panel: Panel, p: StrategyParams) -> None:
 
 
 def main() -> int:
-    cfg = load_config(ROOT / "config" / "paper.toml")
+    cfg = load_config(ROOT / "config" / "research.toml")
     panel = load_panel()
     p, ep = cfg.strategy, cfg.engine_params()
     if "--check" in sys.argv:

@@ -4,7 +4,7 @@
 # API keys are present in the environment, and the command carries --i-understand-live-trading.
 # Start with sandbox = true (exchange demo account) and dry_run = true.
 #
-# This is the configuration frozen in research/SELECTION.md. Every key is documented in
+# The strategy and risk setting of config/paper.toml (the shipped default). Every key is documented in
 # src/compounder/config.py. A running account refuses to continue if strategy, risk,
 # cost or universe settings change (see README: Configuration).
 
@@ -42,7 +42,7 @@ xsmom_lookback = 336        # 14 days
 carry_weight = 0.0          # rejected in research
 reversal_weight = 0.0       # rejected in research
 short_scale = 0.5           # shorts at half size
-target_vol = 0.015          # portfolio daily volatility target: THE risk dial (see README)
+target_vol = 0.010          # portfolio daily volatility target: THE risk dial (see README; research ran at 0.015)
 vol_mode = "target"
 rho = 0.7
 max_symbol_risk = 0.5
@@ -54,7 +54,7 @@ allow_short = true          # false = spot: long or flat, no leverage (see confi
 max_gross = 3.0             # hard cap on total exposure (x equity)
 max_weight = 0.6            # hard cap on one position (x equity)
 rebalance_band = 0.25
-daily_target = 0.02         # the 2% a day target: measured and reported
+daily_target = 0.0          # optional daily yardstick (0.02 = the original 2% a day target); 0 = off
 target_mode = "off"         # "off": never close winners to bank the target (research: locking costs 56-78% of growth)
 daily_loss_limit = 0.03     # flat for the rest of the UTC day after losing 3% on the day
 dd_soft = 0.15              # from a 15% drawdown, scale risk down ...
@@ -72,6 +72,10 @@ catchup_bars = 168          # a week of downtime is replayed exactly
 on_trade = false
 on_alert = true
 daily_summary = true
+
+[goal]                      # what the status page measures the run against; nothing trades on it
+annual_return = 0.12        # the yearly goal: about the middle year of the research record at this risk setting
+drawdown = 0.25             # the drawdown to plan for: about one year in five goes deeper (the kill switch is kill_dd)
 
 [live]
 exchange = "okx"            # the only supported venue; keys come from COMPOUNDER_API_KEY / _API_SECRET / _API_PASSWORD

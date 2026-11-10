@@ -426,7 +426,7 @@ def check(panel: Panel, p) -> None:
         assert changed == len(base), "the perturbation should change every plan afterwards"
 
     # 5. The engine stage: the forked workers return what a direct run returns.
-    ep = load_config(ROOT / "config" / "paper.toml").engine_params()
+    ep = load_config(ROOT / "config" / "research.toml").engine_params()
     stop = compute_targets(small, p).stop_frac
     some = {label: base[label] for label in list(base)[:2]}
     global EVAL_START, SPLIT, EVAL_END
@@ -527,7 +527,7 @@ def candidate_table(panel: Panel, names, kinds, weights, daily_m, ends, turns, r
 
 def main() -> int:
     t0 = time.time()
-    cfg = load_config(ROOT / "config" / "paper.toml")
+    cfg = load_config(ROOT / "config" / "research.toml")
     panel = load_panel()
     p, ep = cfg.strategy, cfg.engine_params()
     if "--check" in sys.argv:

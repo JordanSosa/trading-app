@@ -238,3 +238,30 @@ stands. All JSON files in `research/results/` are from the re-run;
 `frozen_dev_checks.json` and `spot_dev.json` from the first run are
 replaced by `dev.json`, which `scripts/holdout.py dev` writes in the same
 format as the holdout report.
+
+## Amendment 4 (made after HOLDOUT): the shipped default is two-thirds of the research risk
+
+Made after the holdout had been seen and after sections 7 to 10 of
+`RESULTS.md`, when the owner asked for a realistic target and a
+recommendation.
+
+* **What changed.** `config/paper.toml` and the built-in defaults use a
+  1.0% daily volatility target instead of 1.5%, and measure a run against a
+  goal of 12% a year and a planned drawdown of 25% instead of against 2% a
+  day. Signals, sizing rules, stops, governor, costs and universe are
+  unchanged.
+* **What did not.** The configuration frozen in section 5 is kept as
+  `config/research.toml`. Every table in `research/` was produced with it,
+  and the research scripts load it.
+* **Why this is not a selection on the holdout.** The lower setting made
+  less there: +31.0% against +39.8% from 10,000 USDT. Return and drawdown
+  scale together, and from 10,000 USDT the Sharpe ratio is 0.75 to 0.83 at
+  every setting. The change buys a smaller drawdown (15% against 23%) at
+  that price, and a setting a quarter of full Kelly on the out-of-sample
+  Sharpe ratio instead of two-fifths.
+* **What it does not fix.** Under about 750 USDT the exchange's minimum
+  order size decides the positions whatever the setting, and such accounts
+  did poorly out of sample at both settings.
+
+Numbers: `scripts/research_targets.py`, `results/targets.json`, and
+section 10 of `RESULTS.md` ("Afterwards: the shipped default").

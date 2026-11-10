@@ -53,7 +53,7 @@ def main() -> int:
         dump(path, out)
         print(period, out["btc_buy_and_hold"])
         return 0
-    cfg = load_config(ROOT / "config" / "paper.toml")
+    cfg = load_config(ROOT / "config" / "research.toml")
     spot = load_config(ROOT / "config" / "spot.toml")
     panel = load_panel()
     lo, hi = PERIODS[period]

@@ -76,7 +76,7 @@ def summary(r: np.ndarray, btc: np.ndarray, years: np.ndarray, months: np.ndarra
 
 
 def main() -> int:
-    cfg = load_config(ROOT / "config" / "paper.toml")
+    cfg = load_config(ROOT / "config" / "research.toml")
     panel = load_panel()
     ep = cfg.engine_params()
     tg = compute_targets(panel, cfg.strategy)

@@ -1,10 +1,10 @@
-# compounder: AGGRESSIVE preset. Same strategy as config/paper.toml at twice the risk.
+# compounder: AGGRESSIVE preset. Same strategy as config/paper.toml at three times the risk.
 #
 # 3% daily volatility is the highest level that passed the research protocol's survival
 # tests in-sample (33% drawdown on 2020-2024). Out of sample expect deeper drawdowns and a
 # real chance of reaching the 40% kill switch. See research/RESULTS.md before using it.
 #
-# This is the configuration frozen in research/SELECTION.md. Every key is documented in
+# The strategy frozen in research/SELECTION.md at twice the research risk. Every key is documented in
 # src/compounder/config.py. A running account refuses to continue if strategy, risk,
 # cost or universe settings change (see README: Configuration).
 
@@ -42,7 +42,7 @@ xsmom_lookback = 336        # 14 days
 carry_weight = 0.0          # rejected in research
 reversal_weight = 0.0       # rejected in research
 short_scale = 0.5           # shorts at half size
-target_vol = 0.03           # twice the default
+target_vol = 0.03           # three times the default, twice the research setting
 vol_mode = "target"
 rho = 0.7
 max_symbol_risk = 0.5
@@ -72,3 +72,7 @@ catchup_bars = 168          # a week of downtime is replayed exactly
 on_trade = false
 on_alert = true
 daily_summary = true
+
+[goal]                      # what the status page measures the run against; nothing trades on it
+annual_return = 0.0         # no goal: the research does not support one at this setting
+drawdown = 0.0

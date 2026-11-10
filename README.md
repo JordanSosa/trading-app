@@ -1,75 +1,84 @@
 # compounder
 
-A crypto trading bot that compounds a small account (from 100 USDT) under a
-strict risk governor. It trades the 20 most liquid crypto perpetuals, long and
-short, with a trend and momentum strategy; measures every day against a
-**2% daily profit target**; and runs backtests, paper trading on live market
-data and (opt-in) live trading on **one engine**, so the three can be
+A crypto trading bot that compounds a small account under a strict risk
+governor. It trades the 20 most liquid crypto perpetuals, long and short,
+with a trend and momentum strategy, sized for a 1% daily swing and measured
+against a goal of **12% a year**. Backtests, paper trading on live market
+data and (opt-in) live trading run on **one engine**, so the three can be
 compared like for like.
 
-## Read this first: what a 2% a day target gets you
+It was built to make 2% a day. The research below is why it does not try.
 
-**The bot does not make 2% a day, and nothing here should be read as saying
-it will.** 2% a day compounding is 1,377x a year: 100 USDT would become
-137,700 in twelve months. The research behind this app set out to measure
-how close a robust strategy gets, on six years of data, with the last 22
-months held back and evaluated once.
+## Read this first: what to expect
+
+**Nothing here is a promise, and the bot has not been run with real
+money.** The default configuration is the strategy the research selected,
+at two-thirds of the risk it was researched at. The research used six years
+of data, with the last 22 months held back and evaluated once.
 
 | Default configuration | Development 2020-04 to 2024-12 (in-sample) | **Holdout 2025-01 to 2026-10 (out-of-sample)** |
 |---|---:|---:|
-| Compound return per day, from 10,000 USDT | +0.118% | **+0.050%** |
-| Total / annualised | +676% / +54% | **+39.8% / +20.1%** |
-| Maximum drawdown | 21.5% | **23.2%** |
-| Days at or above +2% | 7.8% | **7.6%** |
-| Worst day | -5.3% | -5.3% |
-| From 1,000 USDT: compound per day, max drawdown | +0.120%, 20.9% | +0.035%, 25.4% |
-| From 100 USDT: compound per day, max drawdown | +0.157%, 24.3% | +0.009%, 39.8% |
-| BTC buy and hold, for scale | +0.155% a day, 76.7% drawdown | -0.028% a day (-17.1%), 53.0% drawdown |
+| Per year, from 10,000 USDT | +32.8% | **+15.9%** |
+| Per year, from 1,000 USDT | +35.0% | **+11.1%** |
+| Maximum drawdown, from 10,000 / 1,000 USDT | 15.3% / 14.3% | **15.1% / 16.2%** |
+| Worst day, from 10,000 / 1,000 USDT | -3.5% / -4.2% | -3.4% / -3.2% |
+| BTC buy and hold, for scale | +1,360% in total, 76.7% drawdown | -17.1% in total, 53.0% drawdown |
 
 After fees, slippage and funding. The out-of-sample column is the one to
-believe, and it is a single 22-month period in which 2025 lost 5.9% and
-2026 made 48.7%.
+believe. A year ahead, resampled from those out-of-sample days:
 
-What the evidence says about the target:
+| A year from here | From 10,000 USDT | From 1,000 USDT |
+|---|---:|---:|
+| The middle year | +16% | +11% |
+| 5th to 95th percentile | -20% to +75% | -25% to +71% |
+| A losing year | 27% | 33% |
+| A year of +12% or better (the goal) | 55% | 49% |
+| A drawdown of 20% / 25% / 30% or more | 32% / 15% / 6% | 43% / 23% / 10% |
 
-* **Out of sample the strategy compounded at 0.05% a day**, one fortieth
-  of 2%. That is about +20% a year with a 23% drawdown, in a period when
-  Bitcoin fell 17%.
-* **Turning the risk up does not get there.** In-sample, compound growth
-  peaked at 0.19% a day and fell beyond that. Out of sample, doubling the
-  default risk cut the result from +39.8% to +10.6% with a 38.7% drawdown,
-  and from a 4% volatility target the kill switch ended the run 28% to 37%
-  down.
+* **The goal is the middle of the range, not a floor.** 12% a year is about
+  what the middle year makes; a year in three or four loses money, and
+  about one in five has a drawdown deeper than the 25% the default plans
+  for. The status page shows the run against the goal's pace and against
+  the range that is normal for a run of its length.
+* **The evidence is one 22-month period.** The out-of-sample result is
+  about one standard error above zero: luck alone produces that roughly one
+  time in six. If the edge is not there, the expected result is the cost of
+  trading, about 8% of the account a year at this setting.
+* **Use about 1,000 USDT or more.** Below about 750 USDT the exchange's
+  minimum order size, not the risk setting, decides the positions. Out of
+  sample a 100 USDT account lost 22% with a 38% drawdown and a 200 USDT
+  account lost 4.5%; from 750 USDT upwards the results were +11% to +18% a
+  year. 100 USDT is the smallest deposit that runs, and a small run is told
+  so when it starts.
+* **Why not 2% a day.** 2% a day compounding is 1,377x a year. At the
+  setting the research ran, a 1.5% daily volatility target, the strategy
+  compounded at 0.05% a day out of sample: +20% a year from 10,000 USDT
+  with a 23% drawdown, one fortieth of the target. Turning the risk up did
+  not get there. In-sample, growth peaked at 0.19% a day and fell beyond
+  that. Out of sample, twice the research risk cut the result from +39.8%
+  to +10.6% with a 38.7% drawdown, and from a 4% volatility target the kill
+  switch ended the run 28% to 37% down.
 * **"Banking" 2% a day makes it worse.** Closing everything once the day is
   up 2% turned the out-of-sample gain into a 5.5% loss: it caps the few
-  large days the profit comes from and keeps every losing day. So the
-  target is measured and reported, never traded on.
+  large days the profit comes from and keeps every losing day.
 * **Costs decide it.** At doubled fees and slippage the out-of-sample
-  result falls to +8.7%.
-* **100 USDT is the minimum that functions, not the size these numbers
-  describe.** Exchange minimum order sizes hold a 100 USDT account to a
-  handful of positions; it beat the large account in development and made
-  +5.9% against +39.8% in the holdout, with a drawdown that stopped just
-  short of the kill switch. From about 1,000 USDT the book is close to the
-  tested one.
-* **A year from here:** resampling the out-of-sample days gives a median of
-  +20%, a range of roughly -31% to +123%, a three-in-ten chance of a losing
-  year and a 20% drawdown more likely than not. If the edge has gone, the
-  expected result is the cost drag: fees and slippage on what it trades,
-  about 11% of the account a year.
-* **What is realistic.** Out of sample the default setting made +20% a
-  year from 10,000 USDT and +14% from 1,000, with a 23% to 25% drawdown;
-  at a third to two-thirds of that risk, +8% to +16% from 10,000 USDT with
-  drawdowns of 8% to 15%. A losing year is between a one-in-four and a
-  two-in-five chance at every setting. Large professional trend-following
-  funds have compounded at about 5.7% a year since 2000, at lower risk.
+  result at the research setting falls from +39.8% to +8.7%.
+* **Why the default is below the research setting.** Return and drawdown
+  move together: the risk dial does not make the strategy better or worse.
+  At a 1.0% volatility target it kept about four-fifths of the return for
+  two-thirds of the drawdown, and the chance of a 25% drawdown within a
+  year falls from about one in two to about one in five.
+  `config/research.toml` is the 1.5% setting every table in `research/` was
+  produced with.
 * **Trading it "like a professional" does not add anything.** The bot is
   already a swing trader: it holds a position for 4.6 days on average and
   wins 34% of its trades, with winners 2.35 times the size of losers.
   Fourteen classic swing and day-trading systems with textbook stop and
   target management, put in its place, all did worse in both periods, and
   every day-trading one hit the kill switch once costs were charged
-  ([`RESULTS.md`](research/RESULTS.md), section 10).
+  ([`RESULTS.md`](research/RESULTS.md), section 10). Large professional
+  trend-following funds have compounded at about 5.7% a year since 2000,
+  at lower risk.
 
 The full record is in [`research/`](research): the protocol written before
 any result existed, the candidates frozen before the validation year, the
@@ -97,7 +106,7 @@ market data ──► strategy ──► risk governor ──► engine ──�
   short at half size.
 * **Sizing.** Weights are inversely proportional to each symbol's
   volatility and scaled so the whole portfolio targets a fixed **daily
-  volatility** (`strategy.target_vol`, 1.5% by default). That number is the
+  volatility** (`strategy.target_vol`, 1.0% by default). That number is the
   risk dial: equity invested rises and falls with market volatility, the
   expected daily swing does not. Target weights are averaged over 12 hours
   and a position is only adjusted when it is more than 25% away from its
@@ -113,7 +122,7 @@ market data ──► strategy ──► risk governor ──► engine ──�
 
 | Control | Default | What it does |
 |---|---|---|
-| Volatility target | 1.5% a day | Sizes the whole book; the main risk setting |
+| Volatility target | 1.0% a day | Sizes the whole book; the main risk setting (the research ran at 1.5%) |
 | Exposure caps | 3.0x gross, 0.6x per symbol | Hard limits whatever the signal says |
 | Disaster stop | 4 daily sigmas (3%-25%) | A resting reduce-only stop per position; protects while the bot is offline |
 | Dead markets | 48 hours without a bar | The position is settled at its last price (a delisting) |
@@ -122,11 +131,12 @@ market data ──► strategy ──► risk governor ──► engine ──�
 | Kill switch | 40% drawdown | Flatten and stop until a person runs `compounder resume` |
 | Liquidation model | 2.5% maintenance margin | Backtests and paper runs wipe the account when a real exchange would |
 | Data cross-check | 2% | Refuses to trade if the venue's prices disagree with a second venue |
-| Daily profit target | 2%, measured | Reported every day; **not** used to close winners (doing so turned the out-of-sample gain into a loss) |
+| Goal | +12% a year, drawdowns to 25% | A yardstick on the status page: the pace the goal implies for the time the run has had, and a warning when the drawdown goes past the plan. Nothing trades on it |
+| Daily profit target | off | Optional: `risk.daily_target = 0.02` measures every day against the original 2%. Never used to close winners (doing so turned the out-of-sample gain into a loss) |
 
 The kill switch cannot be disabled. It bounds how far a failing strategy
 can take the account down, but only as fast as an hourly check can act. At
-volatility targets up to 8% a day (five times the default) every test run
+volatility targets up to 8% a day (eight times the default) every test run
 that reached it ended 40.1% to 40.4% below its peak; at 10% to 20% a day a
 single hour took the account 45% to 59% down first. It does not protect
 against an exchange failing or a bug.
@@ -172,9 +182,13 @@ compounder serve                  # http://127.0.0.1:8080/
 ```
 
 The paper run starts with 1,000 USDT. To paper trade a different deposit,
-set `run.initial_equity` (100 USDT minimum) in `config/paper.toml`. Presets:
-`config/aggressive.toml` (twice the risk) and `config/spot.toml` (long or
-flat, no leverage).
+set `run.initial_equity` in `config/paper.toml` (100 USDT minimum; see
+above for why about 1,000 is the sensible minimum). Other presets:
+`config/research.toml` (the 1.5% setting of the research record, measured
+against 2% a day), `config/aggressive.toml` (three times the default risk)
+and `config/spot.toml` (long or flat, no leverage). Only the default and
+the research setting have an out-of-sample record for the self-audit to
+judge a run against.
 
 A tick is idempotent: it replays every hourly bar that closed since the last
 one (up to a week), so a late or missed run changes nothing, and running it
@@ -246,7 +260,7 @@ to establish; the spot preset exists for paper and backtest use.
 
 | Where | What |
 |---|---|
-| `STATUS.md` / `README.md` on `paper-state` | Equity, today against the target, days at target, compound daily return achieved, drawdown, the self-audit (below), positions, last days, events |
+| `STATUS.md` / `README.md` on `paper-state` | Equity, the result against the goal's pace, compound daily return achieved, drawdown against the plan, the self-audit (below), positions, last days, events |
 | `dashboard.html`, `summary.json` | The same as a web page and as JSON |
 | `trades.csv`, `daily.csv`, `equity.csv`, `events.jsonl` | Append-only ledgers: every fill, every completed day, hourly equity, every alert |
 | Push notifications (optional) | Alerts (loss limit, kill switch, stops, data problems), a daily summary, optionally fills |
@@ -266,17 +280,18 @@ leaving a good or bad month to be read as proof. It shows the result so far
 beside the range that is normal for a run of that length, and a one-line
 reading: too early (under 30 completed days), inside, below or above the
 normal range, and whether the result is beyond what a bot with no edge
-would reach. The ranges come from resampling the strategy's out-of-sample
-days (`src/compounder/reference.json`, from 1,000 USDT); "no edge" is the
-same days with the average gain removed and the trading costs left in.
+would reach. The ranges come from resampling the configuration's own
+out-of-sample days (`src/compounder/reference.json`, from 1,000 USDT); "no
+edge" is the same days with the average gain removed and the trading costs
+left in. For the default configuration:
 
 | Run length | Normal if the research holds | Ends at a loss | Normal if the bot has no edge | Ends at a loss | Chance the run tells them apart |
 |---|---:|---:|---:|---:|---:|
-| 30 days | -12% to +24% | 53% | -14% to +21% | 63% | 7% |
-| 90 days | -21% to +43% | 47% | -26% to +33% | 62% | 9% |
-| 180 days | -27% to +66% | 42% | -37% to +45% | 64% | 12% |
-| 1 year | -35% to +111% | 37% | -51% to +58% | 68% | 18% |
-| 2 years | -42% to +207% | 32% | -67% to +73% | 74% | 27% |
+| 30 days | -8% to +17% | 52% | -10% to +15% | 62% | 7% |
+| 90 days | -15% to +29% | 45% | -19% to +22% | 61% | 9% |
+| 180 days | -20% to +44% | 40% | -27% to +30% | 63% | 12% |
+| 1 year | -25% to +71% | 35% | -39% to +39% | 67% | 18% |
+| 2 years | -30% to +126% | 28% | -54% to +50% | 72% | 28% |
 
 Ranges are 5th to 95th percentiles and ignore the kill switch, which would
 end the worst paths at a 40% drawdown. The last column is how often a run
@@ -289,9 +304,11 @@ with the measured edge ends above what 95% of no-edge runs reach.
 * **What a paper run does show, within days, is whether the plumbing is
   sound**: data arriving, orders filling, stops resting, fees in line. The
   audit flags fees running at more than twice the research rate.
-* **It applies to the default configuration only.** A changed strategy,
-  risk or cost setting has no out-of-sample record to be judged against,
-  and the page says so.
+* **It applies to the default and to the research setting only.** Those
+  are the two configurations with an out-of-sample record. A changed
+  strategy, risk or cost setting has none to be judged against, and the
+  page says so. An account under about 750 USDT is told that it is smaller
+  than the research describes.
 * **The audit reports; it never re-tunes the strategy.** A walk-forward
   simulation of a bot that moves to whatever its own recent results favour
   is in [`RESULTS.md`](research/RESULTS.md), section 9. Of the 36 versions
@@ -307,11 +324,12 @@ with the measured edge ends above what 95% of no-edge runs reach.
 | Key | Default | Meaning |
 |---|---|---|
 | `run.initial_equity` | 1000 | Paper deposit in USDT (minimum 100; below about 1,000 the book is a handful of positions) |
-| `strategy.target_vol` | 0.015 | Portfolio daily volatility target: the risk dial |
+| `strategy.target_vol` | 0.010 | Portfolio daily volatility target: the risk dial |
 | `strategy.short_scale` | 0.5 | Size of shorts relative to longs (0 = long only) |
 | `universe.size` | 20 | Number of perpetuals traded (must equal `strategy.universe_n`) |
 | `risk.max_gross` / `max_weight` | 3.0 / 0.6 | Exposure caps |
-| `risk.daily_target` / `target_mode` | 0.02 / `off` | The measured target; `flatten` or `trail` would bank it |
+| `goal.annual_return` / `goal.drawdown` | 0.12 / 0.25 | The yardstick on the status page (0 = none). Not part of the trading configuration: changing it does not interrupt a run |
+| `risk.daily_target` / `target_mode` | 0 / `off` | Optional daily yardstick (0.02 = the original target); `flatten` or `trail` would bank it |
 | `risk.daily_loss_limit` | 0.03 | Daily stop |
 | `risk.dd_soft` / `dd_hard` / `min_risk_mult` | 0.15 / 0.35 / 0.5 | Drawdown scaling |
 | `risk.kill_dd` | 0.40 | Kill switch |
@@ -337,7 +355,7 @@ src/compounder/
   audit.py         self-audit: a run's result against the range the research makes normal for its length
   reference.json   the out-of-sample daily returns the audit resamples (scripts/make_reference.py)
   state.py, report.py, notify.py, config.py, cli.py, metrics.py
-config/            paper (default), aggressive, spot, live template
+config/            paper (default), research (the setting of the research record), aggressive, spot, live template
 research/          protocol, candidates, selection and results, with raw JSON
 scripts/           the research scripts that produced them
 tests/             engine accounting, look-ahead, forward/backtest parity, broker, data, CLI

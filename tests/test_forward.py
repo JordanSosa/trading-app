@@ -260,6 +260,17 @@ def test_position_in_a_dead_market_is_closed_with_an_alert(tmp_path):
     assert any(t["reason"] == "market closed" and t["symbol"] == victim for t in store.read_csv("trades.csv"))
 
 
+def test_small_account_is_warned_once_at_the_start(tmp_path):
+    w = world(seed=5)
+    start = WARM_DAYS * 24 + 3
+    small = dataclasses.replace(config(tmp_path), run=RunConfig(initial_equity=300.0, state_dir=str(tmp_path / "small")))
+    store, _, _ = run_forward(small, w, start, start + 3, minutes=[1])
+    warned = [e for e in store.read_events() if e["kind"] == "warning" and "small account" in e["message"]]
+    assert len(warned) == 1 and "minimum order size" in warned[0]["message"]
+    store, _, _ = run_forward(config(tmp_path), w, start, start + 3, minutes=[1])            # 5,000 USDT
+    assert not [e for e in store.read_events() if "small account" in e["message"]]
+
+
 def test_reports_and_notifications_are_produced(tmp_path):
     w = world(seed=47)
     cfg = config(tmp_path)

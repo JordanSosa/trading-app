@@ -285,7 +285,7 @@ def cmd_live_check(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="compounder", description="Risk-governed multi-asset crypto trading bot "
-                                 "with a daily profit target.")
+                                 "measured against a yearly goal.")
     ap.add_argument("-v", "--verbose", action="store_true")
     sub = ap.add_subparsers(dest="command", required=True)
 

@@ -24,7 +24,7 @@ from typing import Any, Callable
 import numpy as np
 
 from . import __version__
-from .config import Config
+from .config import SMALL_ACCOUNT, Config
 from .data.http import HttpClient
 from .data.live import DataError, Instrument, MarketSource, make_source
 from .data.panel import DAY_MS, Panel, build_panel, refresh_instant
@@ -363,6 +363,10 @@ def tick(cfg: Config, store: StateStore, market: MarketData | None = None, now_m
             doc = new_run_document(cfg, now_ms)
             events.append({"ts_ms": now_ms, "kind": "info",
                            "message": f"{cfg.run.mode} run started with {cfg.run.initial_equity:,.2f} USDT"})
+            if cfg.run.mode == "paper" and cfg.run.initial_equity < SMALL_ACCOUNT:
+                events.append({"ts_ms": now_ms, "kind": "warning", "message": (
+                    f"small account: under about {SMALL_ACCOUNT:,.0f} USDT the exchange's minimum order size, not the "
+                    "risk setting, decides the positions; in research such accounts did poorly at every setting")})
         fp = cfg.fingerprint()
         if doc["run"]["fingerprint"] != fp:
             if doc["run"].get("mode") != cfg.run.mode:

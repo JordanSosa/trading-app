@@ -64,10 +64,20 @@ def build_summary(store: StateStore, doc: dict[str, Any], cfg: Config) -> dict[s
         "day-stopped" if eng.get("day_stopped") else "day-locked" if eng.get("day_locked") else "running"
     ends = [x for x in _floats(daily, "end_equity") if math.isfinite(x) and x > 0]
     mean_equity = (initial + sum(ends)) / (1 + len(ends))
+    days_elapsed = max(0.0, (now_ms - started) / DAY_MS)
+    worst = max(float(eng.get("max_drawdown") or 0.0), 1.0 - equity / peak if peak else 0.0)
+    goal = cfg.goal
+    # The goal is a yardstick: what the yearly goal comes to over the time the run has had.
+    pace = (1.0 + goal.annual_return) ** (days_elapsed / 365.0) - 1.0 if goal.annual_return > 0 else None
     return {
-        "audit": audit(rets, cfg, fees_paid=float(eng.get("fees_paid") or 0.0), mean_equity=mean_equity),
+        "audit": audit(rets, cfg, fees_paid=float(eng.get("fees_paid") or 0.0), mean_equity=mean_equity,
+                       initial_equity=initial),
+        "goal": {"annual_return": goal.annual_return or None, "drawdown": goal.drawdown or None, "pace": pace,
+                 "ahead_of_pace": (equity / initial - 1.0 >= pace) if pace is not None else None,
+                 "drawdown_exceeded": bool(goal.drawdown and worst > goal.drawdown),
+                 "kill_drawdown": cfg.risk.kill_dd},
         "generated_at": doc["updated_at"], "run_id": run["id"], "mode": run.get("mode", "paper"), "status": status,
-        "start_time": run["start_time"], "days_elapsed": max(0.0, (now_ms - started) / DAY_MS),
+        "start_time": run["start_time"], "days_elapsed": days_elapsed,
         "initial_equity": initial, "equity": equity, "pnl": equity - initial, "return": equity / initial - 1.0,
         "today_return": equity / day_start - 1.0 if day_start else None, "daily_target": target,
         "target_hit_today": bool(eng.get("day_target_hit")),
@@ -147,6 +157,7 @@ def equity_svg(store: StateStore, doc: dict[str, Any], width: int = 900, height:
 # ---------------------------------------------------------------------- markdown
 def status_markdown(s: dict[str, Any], store: StateStore) -> str:
     target = s["daily_target"]
+    goal = s.get("goal") or {}
     lines = [
         f"# compounder: {s['mode']} run `{s['run_id']}`", "",
         f"**Status: {s['status']}** | updated {s['generated_at']} | last bar closed {s['last_bar_closed'] or 'n/a'}",
@@ -154,20 +165,31 @@ def status_markdown(s: dict[str, Any], store: StateStore) -> str:
         "| | |", "|---|---:|",
         f"| Equity | {_f(s['equity'])} USDT |",
         f"| Since start ({_f(s['days_elapsed'], 1)} days) | {_pct(s['return'])} ({_f(s['pnl'])} USDT) |",
-        f"| Today so far | {_pct(s['today_return'])}{' (target reached)' if s['target_hit_today'] else ''} |",
-        f"| Daily target | {_pct(target, 1) if target else 'off'} |",
-        f"| Days at or above target | {s['days_at_target']} of {s['days_completed']}"
-        f"{' (' + _pct(s['pct_days_at_target'], 1, False) + ')' if s['pct_days_at_target'] is not None else ''} |",
+    ]
+    if goal.get("annual_return"):
+        lines.append(f"| Goal pace for that time ({_pct(goal['annual_return'], 0)} a year) | {_pct(goal['pace'])} |")
+    lines.append(f"| Today so far | {_pct(s['today_return'])}{' (target reached)' if s['target_hit_today'] else ''} |")
+    if target:
+        lines += [
+            f"| Daily target | {_pct(target, 1)} |",
+            f"| Days at or above target | {s['days_at_target']} of {s['days_completed']}"
+            f"{' (' + _pct(s['pct_days_at_target'], 1, False) + ')' if s['pct_days_at_target'] is not None else ''} |"]
+    plan = f" (plan for up to {_pct(goal['drawdown'], 0, False)})" if goal.get("drawdown") else ""
+    lines += [
         f"| Compound daily return (measured) | {_pct(s['compound_daily_return'], 3)} |",
         f"| Mean daily return | {_pct(s['mean_daily_return'], 3)} |",
         f"| Days up / down | {s['days_up']} / {s['days_down']} |",
         f"| Best / worst day | {_pct(s['best_day'])} / {_pct(s['worst_day'])} |",
-        f"| Drawdown now / worst | {_pct(s['drawdown_now'], 1, False)} / {_pct(s['max_drawdown'], 1, False)} |",
+        f"| Drawdown now / worst | {_pct(s['drawdown_now'], 1, False)} / {_pct(s['max_drawdown'], 1, False)}{plan} |",
         f"| Risk multiplier | {_f(s['risk_multiplier'])} |",
         f"| Exposure gross / net | {_f(s['gross_exposure'])}x / {_f(s['net_exposure'])}x |",
         f"| Fills / stops | {s['trades']} / {s['stops']} |",
         f"| Fees / funding paid | {_f(s['fees_paid'])} / {_f(s['funding_paid'])} USDT |", "",
     ]
+    if goal.get("drawdown_exceeded"):
+        lines += [f"**The drawdown has gone deeper than the {_pct(goal['drawdown'], 0, False)} this setting was planned "
+                  f"for.** The governor has been cutting risk on the way down and stops the run at "
+                  f"{_pct(goal['kill_drawdown'], 0, False)}.", ""]
     if s.get("audit"):
         lines += audit_markdown(s["audit"])
     if s["positions"]:

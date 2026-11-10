@@ -1,10 +1,11 @@
 """Self-audit: what a run's own results do and do not show yet.
 
 A paper or live run is judged against the research record instead of against
-hope. The reference is the frozen default strategy's out-of-sample daily
-returns (written by ``scripts/make_reference.py``). Resampling those days gives
-the range of results that is normal for a run of any length if the research
-holds, and the range for a bot that predicts nothing and still pays to trade.
+hope. A reference is the strategy's out-of-sample daily returns at one
+configuration (written by ``scripts/make_reference.py`` for the shipped default
+and for the research setting). Resampling those days gives the range of
+results that is normal for a run of any length if the research holds, and the
+range for a bot that predicts nothing and still pays to trade.
 The two ranges overlap for a long time; the audit says by how much, so a good
 or a bad month is not read as proof of anything.
 
@@ -26,7 +27,7 @@ from typing import Any
 
 import numpy as np
 
-from .config import Config
+from .config import SMALL_ACCOUNT, Config
 from .metrics import block_bootstrap
 
 REFERENCE_FILE = Path(__file__).with_name("reference.json")
@@ -45,14 +46,20 @@ def reference_key(cfg: Config) -> str:
 
 
 @functools.lru_cache(maxsize=4)
-def load_reference(path: str | Path = REFERENCE_FILE) -> dict[str, Any] | None:
+def load_references(path: str | Path = REFERENCE_FILE) -> tuple[dict[str, Any], ...]:
+    """The references shipped with the package: one per configuration that has an out-of-sample record."""
     try:
-        ref = json.loads(Path(path).read_text())
+        doc = json.loads(Path(path).read_text())
     except (OSError, ValueError):
-        return None
-    if not isinstance(ref, dict) or len(ref.get("daily_returns") or []) < 3 * BLOCK:
-        return None
-    return ref
+        return ()
+    refs = doc.get("references") if isinstance(doc, dict) else None
+    return tuple(r for r in refs or () if isinstance(r, dict) and len(r.get("daily_returns") or []) >= 3 * BLOCK)
+
+
+def load_reference(cfg: Config, path: str | Path = REFERENCE_FILE) -> dict[str, Any] | None:
+    """The reference for this configuration, or None if it has no out-of-sample record."""
+    key = reference_key(cfg)
+    return next((r for r in load_references(path) if r.get("key") == key), None)
 
 
 def _final_returns(series: np.ndarray, days: int, paths: int) -> np.ndarray:
@@ -89,13 +96,17 @@ def outcome_ranges(ref: dict[str, Any], days: int, paths: int = PATHS) -> dict[s
 
 
 def audit(daily_returns: list[float], cfg: Config, fees_paid: float = 0.0, mean_equity: float | None = None,
-          reference: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Judge a run's completed days against the research record. Pure: reads nothing but its arguments."""
+          reference: dict[str, Any] | None = None, initial_equity: float | None = None) -> dict[str, Any]:
+    """Judge a run's completed days against the research record.
+
+    ``reference`` defaults to the shipped one for this configuration, if there is one.
+    """
     rets = np.asarray([x for x in daily_returns if math.isfinite(x)], dtype="float64")
     n = int(rets.size)
     out: dict[str, Any] = {"days": n, "min_days": MIN_DAYS, "result": None, "sharpe": None, "sharpe_error": None,
                            "ranges": None, "fee_per_day": None, "reference_fee_per_day": None, "fees_high": False,
-                           "beats_no_edge": False, "basis": None}
+                           "beats_no_edge": False, "basis": None,
+                           "small_account": bool(initial_equity is not None and initial_equity < SMALL_ACCOUNT)}
     if n == 0:
         out["verdict"] = "no_days"
         return out
@@ -105,7 +116,7 @@ def audit(daily_returns: list[float], cfg: Config, fees_paid: float = 0.0, mean_
         daily_sharpe = float(rets.mean()) / sd
         out["sharpe"] = daily_sharpe * math.sqrt(365.0)
         out["sharpe_error"] = math.sqrt((1.0 + 0.5 * daily_sharpe ** 2) / n) * math.sqrt(365.0)
-    ref = reference if reference is not None else load_reference()
+    ref = reference if reference is not None else load_reference(cfg)
     if ref is None or ref.get("key") != reference_key(cfg):
         out["verdict"] = "no_reference"
         return out
@@ -163,8 +174,10 @@ def audit_markdown(a: dict[str, Any]) -> list[str]:
     r = a.get("ranges")
     if r:
         lines += [
-            f"| Normal for {n} days if the research holds | {_pct(r['edge']['p05'])} to {_pct(r['edge']['p95'])} |",
-            f"| Normal for {n} days if the bot has no edge | {_pct(r['no_edge']['p05'])} to {_pct(r['no_edge']['p95'])} |",
+            f"| Normal for {n} days if the research holds | {_pct(r['edge']['p05'])} to {_pct(r['edge']['p95'])}, "
+            f"typically {_pct(r['edge']['median'])} |",
+            f"| Normal for {n} days if the bot has no edge | {_pct(r['no_edge']['p05'])} to {_pct(r['no_edge']['p95'])}, "
+            f"typically {_pct(r['no_edge']['median'])} |",
         ]
     if a.get("sharpe") is not None:
         lines.append(f"| Sharpe ratio so far | {a['sharpe']:+.1f}, give or take {a['sharpe_error']:.1f} |")
@@ -177,6 +190,10 @@ def audit_markdown(a: dict[str, Any]) -> list[str]:
     if a.get("fees_high"):
         lines.append("**Fees are running at more than twice the research rate**: the bot is trading more, or paying "
                      "more per trade, than the record assumes.")
+    if a.get("small_account"):
+        lines.append(f"**This account is smaller than the research describes.** Under about {SMALL_ACCOUNT:,.0f} USDT the "
+                     "exchange's minimum order size, not the risk setting, decides the positions, and such accounts "
+                     "did poorly in research at every setting.")
     if r:
         lines += ["", f"Ranges are the 5th to 95th percentile of resampled runs of the {a['basis']}. \"No edge\" is the "
                       "same days with the average gain removed and the trading costs left in. The audit only reports; "
