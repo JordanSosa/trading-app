@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=9.2.0"]
 
 [project.scripts]
 tradebot = "tradebot.cli:main"
