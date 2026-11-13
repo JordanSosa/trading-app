@@ -1,19 +1,19 @@
 # BTC/USDT paper trading - RUNNING
 
-> **Paper money only. No real orders are placed.** Updated 2026-11-13T18:28:44Z - data source `binance_vision` - run `run-20261106T0047Z`
+> **Paper money only. No real orders are placed.** Updated 2026-11-13T23:48:55Z - data source `binance_vision` - run `run-20261106T0047Z`
 
 | Metric | Value |
 |---|---|
-| Equity | **10,529.60 USDT** (+5.30%) |
-| P&L | 529.60 USDT (realised 0.00, unrealised 522.58) |
-| Buy & hold since start | -9.67% (strategy vs B&H: +14.97%) |
-| BTC price | 68,958.00 (start 76,340.00) |
-| Position | short 0.12128 BTC = 8,363.23 USDT (-79.4% exposure, hybrid) |
+| Equity | **10,627.83 USDT** (+6.28%) |
+| P&L | 627.83 USDT (realised 0.00, unrealised 620.81) |
+| Buy & hold since start | -10.73% (strategy vs B&H: +17.01%) |
+| BTC price | 68,148.01 (start 76,340.00) |
+| Position | short 0.12128 BTC = 8,264.99 USDT (-77.8% exposure, hybrid) |
 | Cash | 18,892.82 USDT |
-| Max drawdown | 1.84% (current 0.94%) |
+| Max drawdown | 1.84% (current 0.02%) |
 | Fees paid | 4.45 USDT - funding paid -7.02 USDT (negative = received) |
 | Trades / round trips | 2 / 0 (win rate n/a) |
-| Run window | 2026-11-06T00:47:35Z -> 2026-12-06T00:00:00Z (day 7.7 of 30) |
+| Run window | 2026-11-06T00:47:35Z -> 2026-12-06T00:00:00Z (day 8.0 of 30) |
 | Strategy | `lss_breakdown_vol(entry_n=240, exit_n=48, regime_n=3000, floor=0.35, short_risk=0.004)` |
 
 ![equity curve](equity.svg)
@@ -31,9 +31,9 @@
 
 ## Health
 
-- Last tick: 2026-11-13T18:28:44Z (ticks run: 33)
-- Last successful tick: 2026-11-13T18:28:44Z
-- Last closed bar processed: 2026-11-13T18:00:00Z
+- Last tick: 2026-11-13T23:48:55Z (ticks run: 34)
+- Last successful tick: 2026-11-13T23:48:55Z
+- Last closed bar processed: 2026-11-13T23:00:00Z
 - Consecutive failures: 0
 
 Ledgers: [trades.csv](trades.csv) - [trips.csv](trips.csv) - [equity.csv](equity.csv) - [events.jsonl](events.jsonl) - [state.json](state.json)
