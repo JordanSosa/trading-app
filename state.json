@@ -2,24 +2,24 @@
   "created_at": "2026-11-06T00:47:35Z",
   "engine": {
     "avg_cost": 73266.85133702036,
-    "bars_processed": 191,
-    "cash": 18892.822209990652,
+    "bars_processed": 195,
+    "cash": 18893.148574396673,
     "cooldown_until_ms": null,
     "end_ms": 1796515200000,
     "ended": false,
     "fees_paid": 4.445124427290561,
-    "funding_paid": -7.018479836823018,
+    "funding_paid": -7.344844242844062,
     "halt_until_ms": null,
-    "hwm": 10629.460689973723,
-    "in_market_bars": 121,
+    "hwm": 10684.674401596672,
+    "in_market_bars": 125,
     "initial_equity": 10000.0,
-    "last_close_ms": 1794607200000,
-    "last_equity": 10614.975877190653,
-    "last_open_ms": 1794610800000,
-    "last_price": 68254.01,
+    "last_close_ms": 1794621600000,
+    "last_equity": 10684.674401596672,
+    "last_open_ms": 1794625200000,
+    "last_price": 67682.01,
     "last_target": -0.7775545506816345,
     "max_drawdown": 0.0184383310164834,
-    "peak_equity": 10629.460689973723,
+    "peak_equity": 10684.674401596672,
     "pending": null,
     "qty": -0.12128000000000001,
     "realized_pnl": 0.0,
@@ -42,16 +42,16 @@
   "health": {
     "consecutive_failures": 0,
     "last_error": null,
-    "last_live_price": 68148.01,
-    "last_live_price_at": "2026-11-13T23:48:55Z",
+    "last_live_price": 66917.22,
+    "last_live_price_at": "2026-11-14T03:39:19Z",
     "last_provider": "binance_vision",
-    "last_success_at": "2026-11-13T23:48:55Z",
-    "last_tick_at": "2026-11-13T23:48:55Z",
-    "ticks": 34
+    "last_success_at": "2026-11-14T03:39:19Z",
+    "last_tick_at": "2026-11-14T03:39:19Z",
+    "ticks": 35
   },
   "notify": {
-    "last_daily_summary": "2026-11-13",
-    "last_daily_summary_at": "2026-11-13T02:58:08Z"
+    "last_daily_summary": "2026-11-14",
+    "last_daily_summary_at": "2026-11-14T03:39:19Z"
   },
   "run": {
     "completed_at": null,
@@ -82,5 +82,5 @@
     "version": "0.1.0"
   },
   "schema_version": 1,
-  "updated_at": "2026-11-13T23:48:55Z"
+  "updated_at": "2026-11-14T03:39:19Z"
 }
