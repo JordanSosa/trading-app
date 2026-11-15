@@ -2,24 +2,24 @@
   "created_at": "2026-11-06T00:47:35Z",
   "engine": {
     "avg_cost": 73266.85133702036,
-    "bars_processed": 213,
-    "cash": 18893.442517782856,
+    "bars_processed": 217,
+    "cash": 18893.14785088701,
     "cooldown_until_ms": null,
     "end_ms": 1796515200000,
     "ended": false,
     "fees_paid": 4.445124427290561,
-    "funding_paid": -7.638787629025832,
+    "funding_paid": -7.34412073317824,
     "halt_until_ms": null,
-    "hwm": 11038.332178582856,
-    "in_market_bars": 143,
+    "hwm": 11200.926254087008,
+    "in_market_bars": 147,
     "initial_equity": 10000.0,
-    "last_close_ms": 1794686400000,
-    "last_equity": 11038.332178582856,
-    "last_open_ms": 1794690000000,
-    "last_price": 64768.39,
+    "last_close_ms": 1794700800000,
+    "last_equity": 11200.926254087008,
+    "last_open_ms": 1794704400000,
+    "last_price": 63425.31,
     "last_target": -0.7775545506816345,
     "max_drawdown": 0.0184383310164834,
-    "peak_equity": 11038.332178582856,
+    "peak_equity": 11200.926254087008,
     "pending": null,
     "qty": -0.12128000000000001,
     "realized_pnl": 0.0,
@@ -42,16 +42,16 @@
   "health": {
     "consecutive_failures": 0,
     "last_error": null,
-    "last_live_price": 64493.95,
-    "last_live_price_at": "2026-11-14T21:21:34Z",
+    "last_live_price": 62796.33,
+    "last_live_price_at": "2026-11-15T01:16:10Z",
     "last_provider": "binance_vision",
-    "last_success_at": "2026-11-14T21:21:34Z",
-    "last_tick_at": "2026-11-14T21:21:34Z",
-    "ticks": 38
+    "last_success_at": "2026-11-15T01:16:10Z",
+    "last_tick_at": "2026-11-15T01:16:10Z",
+    "ticks": 39
   },
   "notify": {
-    "last_daily_summary": "2026-11-14",
-    "last_daily_summary_at": "2026-11-14T03:39:19Z"
+    "last_daily_summary": "2026-11-15",
+    "last_daily_summary_at": "2026-11-15T01:16:10Z"
   },
   "run": {
     "completed_at": null,
@@ -82,5 +82,5 @@
     "version": "0.1.0"
   },
   "schema_version": 1,
-  "updated_at": "2026-11-14T21:21:34Z"
+  "updated_at": "2026-11-15T01:16:10Z"
 }
