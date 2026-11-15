@@ -1,19 +1,19 @@
 # BTC/USDT paper trading - RUNNING
 
-> **Paper money only. No real orders are placed.** Updated 2026-11-15T15:35:50Z - data source `binance_vision` - run `run-20261106T0047Z`
+> **Paper money only. No real orders are placed.** Updated 2026-11-15T20:37:00Z - data source `binance_vision` - run `run-20261106T0047Z`
 
 | Metric | Value |
 |---|---|
-| Equity | **10,998.45 USDT** (+9.98%) |
-| P&L | 998.45 USDT (realised 0.00, unrealised 991.11) |
-| Buy & hold since start | -15.18% (strategy vs B&H: +25.16%) |
-| BTC price | 64,753.62 (start 76,340.00) |
-| Position | short 0.14027 BTC = 9,082.99 USDT (-82.6% exposure, hybrid) |
-| Cash | 20,081.44 USDT |
-| Max drawdown | 3.70% (current 2.65%) |
-| Fees paid | 5.04 USDT - funding paid -7.34 USDT (negative = received) |
+| Equity | **10,954.46 USDT** (+9.54%) |
+| P&L | 954.46 USDT (realised 0.00, unrealised 947.01) |
+| Buy & hold since start | -14.77% (strategy vs B&H: +24.31%) |
+| BTC price | 65,068.01 (start 76,340.00) |
+| Position | short 0.14027 BTC = 9,127.09 USDT (-83.3% exposure, hybrid) |
+| Cash | 20,081.55 USDT |
+| Max drawdown | 3.70% (current 3.04%) |
+| Fees paid | 5.04 USDT - funding paid -7.45 USDT (negative = received) |
 | Trades / round trips | 3 / 0 (win rate n/a) |
-| Run window | 2026-11-06T00:47:35Z -> 2026-12-06T00:00:00Z (day 9.6 of 30) |
+| Run window | 2026-11-06T00:47:35Z -> 2026-12-06T00:00:00Z (day 9.8 of 30) |
 | Strategy | `lss_breakdown_vol(entry_n=240, exit_n=48, regime_n=3000, floor=0.35, short_risk=0.004)` |
 
 ![equity curve](equity.svg)
@@ -32,9 +32,9 @@
 
 ## Health
 
-- Last tick: 2026-11-15T15:35:50Z (ticks run: 41)
-- Last successful tick: 2026-11-15T15:35:50Z
-- Last closed bar processed: 2026-11-15T15:00:00Z
+- Last tick: 2026-11-15T20:37:00Z (ticks run: 42)
+- Last successful tick: 2026-11-15T20:37:00Z
+- Last closed bar processed: 2026-11-15T20:00:00Z
 - Consecutive failures: 0
 
 Ledgers: [trades.csv](trades.csv) - [trips.csv](trips.csv) - [equity.csv](equity.csv) - [events.jsonl](events.jsonl) - [state.json](state.json)
