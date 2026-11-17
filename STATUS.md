@@ -1,19 +1,19 @@
 # BTC/USDT paper trading - RUNNING
 
-> **Paper money only. No real orders are placed.** Updated 2026-11-16T17:09:10Z - data source `binance_vision` - run `run-20261106T0047Z`
+> **Paper money only. No real orders are placed.** Updated 2026-11-17T00:51:45Z - data source `binance_vision` - run `run-20261106T0047Z`
 
 | Metric | Value |
 |---|---|
-| Equity | **10,985.87 USDT** (+9.86%) |
-| P&L | 985.87 USDT (realised 0.00, unrealised 978.03) |
-| Buy & hold since start | -15.06% (strategy vs B&H: +24.91%) |
-| BTC price | 64,846.86 (start 76,340.00) |
-| Position | short 0.14027 BTC = 9,096.07 USDT (-82.8% exposure, hybrid) |
-| Cash | 20,081.94 USDT |
-| Max drawdown | 3.70% (current 2.76%) |
-| Fees paid | 5.04 USDT - funding paid -7.84 USDT (negative = received) |
+| Equity | **11,021.45 USDT** (+10.21%) |
+| P&L | 1,021.45 USDT (realised 0.00, unrealised 1,013.21) |
+| Buy & hold since start | -15.38% (strategy vs B&H: +25.60%) |
+| BTC price | 64,596.10 (start 76,340.00) |
+| Position | short 0.14027 BTC = 9,060.89 USDT (-82.2% exposure, hybrid) |
+| Cash | 20,082.35 USDT |
+| Max drawdown | 3.70% (current 2.45%) |
+| Fees paid | 5.04 USDT - funding paid -8.25 USDT (negative = received) |
 | Trades / round trips | 3 / 0 (win rate n/a) |
-| Run window | 2026-11-06T00:47:35Z -> 2026-12-06T00:00:00Z (day 10.7 of 30) |
+| Run window | 2026-11-06T00:47:35Z -> 2026-12-06T00:00:00Z (day 11.0 of 30) |
 | Strategy | `lss_breakdown_vol(entry_n=240, exit_n=48, regime_n=3000, floor=0.35, short_risk=0.004)` |
 
 ![equity curve](equity.svg)
@@ -32,9 +32,9 @@
 
 ## Health
 
-- Last tick: 2026-11-16T17:09:10Z (ticks run: 45)
-- Last successful tick: 2026-11-16T17:09:10Z
-- Last closed bar processed: 2026-11-16T17:00:00Z
+- Last tick: 2026-11-17T00:51:45Z (ticks run: 46)
+- Last successful tick: 2026-11-17T00:51:45Z
+- Last closed bar processed: 2026-11-17T00:00:00Z
 - Consecutive failures: 0
 
 Ledgers: [trades.csv](trades.csv) - [trips.csv](trips.csv) - [equity.csv](equity.csv) - [events.jsonl](events.jsonl) - [state.json](state.json)
