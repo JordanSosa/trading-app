@@ -1,19 +1,19 @@
 # BTC/USDT paper trading - RUNNING
 
-> **Paper money only. No real orders are placed.** Updated 2026-11-18T01:14:13Z - data source `binance_vision` - run `run-20261106T0047Z`
+> **Paper money only. No real orders are placed.** Updated 2026-11-18T08:38:01Z - data source `binance_vision` - run `run-20261106T0047Z`
 
 | Metric | Value |
 |---|---|
-| Equity | **11,018.08 USDT** (+10.18%) |
-| P&L | 1,018.08 USDT (realised 0.00, unrealised 1,009.86) |
-| Buy & hold since start | -15.35% (strategy vs B&H: +25.53%) |
-| BTC price | 64,619.94 (start 76,340.00) |
-| Position | short 0.14027 BTC = 9,064.24 USDT (-82.3% exposure, hybrid) |
-| Cash | 20,082.32 USDT |
-| Max drawdown | 3.70% (current 2.48%) |
-| Fees paid | 5.04 USDT - funding paid -8.21 USDT (negative = received) |
+| Equity | **11,001.45 USDT** (+10.01%) |
+| P&L | 1,001.45 USDT (realised 0.00, unrealised 993.02) |
+| Buy & hold since start | -15.20% (strategy vs B&H: +25.21%) |
+| BTC price | 64,740.01 (start 76,340.00) |
+| Position | short 0.14027 BTC = 9,081.08 USDT (-82.5% exposure, hybrid) |
+| Cash | 20,082.53 USDT |
+| Max drawdown | 3.70% (current 2.62%) |
+| Fees paid | 5.04 USDT - funding paid -8.43 USDT (negative = received) |
 | Trades / round trips | 3 / 0 (win rate n/a) |
-| Run window | 2026-11-06T00:47:35Z -> 2026-12-06T00:00:00Z (day 12.0 of 30) |
+| Run window | 2026-11-06T00:47:35Z -> 2026-12-06T00:00:00Z (day 12.3 of 30) |
 | Strategy | `lss_breakdown_vol(entry_n=240, exit_n=48, regime_n=3000, floor=0.35, short_risk=0.004)` |
 
 ![equity curve](equity.svg)
@@ -32,9 +32,9 @@
 
 ## Health
 
-- Last tick: 2026-11-18T01:14:13Z (ticks run: 49)
-- Last successful tick: 2026-11-18T01:14:13Z
-- Last closed bar processed: 2026-11-18T01:00:00Z
+- Last tick: 2026-11-18T08:38:01Z (ticks run: 50)
+- Last successful tick: 2026-11-18T08:38:01Z
+- Last closed bar processed: 2026-11-18T08:00:00Z
 - Consecutive failures: 0
 
 Ledgers: [trades.csv](trades.csv) - [trips.csv](trips.csv) - [equity.csv](equity.csv) - [events.jsonl](events.jsonl) - [state.json](state.json)
