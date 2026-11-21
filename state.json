@@ -2,21 +2,21 @@
   "created_at": "2026-11-06T00:47:35Z",
   "engine": {
     "avg_cost": 71819.35602618546,
-    "bars_processed": 356,
-    "cash": 20082.679554158436,
+    "bars_processed": 361,
+    "cash": 20082.18775206683,
     "cooldown_until_ms": null,
     "end_ms": 1796515200000,
     "ended": false,
     "fees_paid": 5.039570320056546,
-    "funding_paid": -8.578484365393985,
+    "funding_paid": -8.086682273788952,
     "halt_until_ms": null,
     "hwm": 11888.385291458435,
-    "in_market_bars": 286,
+    "in_market_bars": 291,
     "initial_equity": 10000.0,
-    "last_close_ms": 1795201200000,
-    "last_equity": 11868.656315958435,
-    "last_open_ms": 1795204800000,
-    "last_price": 58558.66,
+    "last_close_ms": 1795219200000,
+    "last_equity": 11801.101426866831,
+    "last_open_ms": 1795222800000,
+    "last_price": 59036.76,
     "last_target": -0.7775545506816345,
     "max_drawdown": 0.037014217781041525,
     "peak_equity": 11888.385291458435,
@@ -42,16 +42,16 @@
   "health": {
     "consecutive_failures": 0,
     "last_error": null,
-    "last_live_price": 58585.65,
-    "last_live_price_at": "2026-11-20T20:30:41Z",
+    "last_live_price": 58986.56,
+    "last_live_price_at": "2026-11-21T01:43:35Z",
     "last_provider": "binance_vision",
-    "last_success_at": "2026-11-20T20:30:41Z",
-    "last_tick_at": "2026-11-20T20:30:41Z",
-    "ticks": 58
+    "last_success_at": "2026-11-21T01:43:35Z",
+    "last_tick_at": "2026-11-21T01:43:35Z",
+    "ticks": 59
   },
   "notify": {
-    "last_daily_summary": "2026-11-20",
-    "last_daily_summary_at": "2026-11-20T03:28:36Z"
+    "last_daily_summary": "2026-11-21",
+    "last_daily_summary_at": "2026-11-21T01:43:35Z"
   },
   "run": {
     "completed_at": null,
@@ -82,5 +82,5 @@
     "version": "0.1.0"
   },
   "schema_version": 1,
-  "updated_at": "2026-11-20T20:30:41Z"
+  "updated_at": "2026-11-21T01:43:35Z"
 }
