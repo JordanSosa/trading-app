@@ -1,1 +1,2 @@
 {"kind": "info", "message": "paper run started: lss_breakdown_vol(entry_n=240, exit_n=48, regime_n=3000, floor=0.35, short_risk=0.004), 10,000.00 USDT, 30 days, data via binance_vision", "time": "2026-11-06T00:47:35Z", "ts_ms": 1793926055112}
+{"kind": "alert", "message": "circuit breaker: drawdown 10.4% from high-water mark; flat for 48h", "time": "2026-11-23T14:00:00Z", "ts_ms": 1795442400000}

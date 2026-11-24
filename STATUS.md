@@ -1,20 +1,21 @@
-# BTC/USDT paper trading - RUNNING
+# BTC/USDT paper trading - HALTED (circuit breaker)
 
-> **Paper money only. No real orders are placed.** Updated 2026-11-23T13:44:01Z - data source `binance_vision` - run `run-20261106T0047Z`
+> **Paper money only. No real orders are placed.** Updated 2026-11-24T01:16:02Z - data source `binance_vision` - run `run-20261106T0047Z`
 
 | Metric | Value |
 |---|---|
-| Equity | **11,366.31 USDT** (+13.66%) |
-| P&L | 1,366.31 USDT (realised 175.73, unrealised 1,182.68) |
-| Buy & hold since start | -19.69% (strategy vs B&H: +33.36%) |
-| BTC price | 61,305.33 (start 76,340.00) |
-| Position | short 0.14494 BTC = 8,885.59 USDT (-78.2% exposure, hybrid) |
-| Cash | 20,251.90 USDT |
-| Max drawdown | 7.88% (current 7.44%) |
-| Fees paid | 6.42 USDT - funding paid -7.90 USDT (negative = received) |
-| Trades / round trips | 5 / 0 (win rate n/a) |
-| Run window | 2026-11-06T00:47:35Z -> 2026-12-06T00:00:00Z (day 17.5 of 30) |
+| Equity | **10,991.39 USDT** (+9.91%) |
+| P&L | 991.39 USDT (realised 983.49, unrealised 0.00) |
+| Buy & hold since start | -19.44% (strategy vs B&H: +29.35%) |
+| BTC price | 61,501.99 (start 76,340.00) |
+| Position | flat 0.00000 BTC = 0.00 USDT (0.0% exposure, hybrid) |
+| Cash | 10,991.39 USDT |
+| Max drawdown | 10.49% (current 10.49%) |
+| Fees paid | 11.05 USDT - funding paid -7.90 USDT (negative = received) |
+| Trades / round trips | 6 / 1 (win rate 100%) |
+| Run window | 2026-11-06T00:47:35Z -> 2026-12-06T00:00:00Z (day 18.0 of 30) |
 | Strategy | `lss_breakdown_vol(entry_n=240, exit_n=48, regime_n=3000, floor=0.35, short_risk=0.004)` |
+| Circuit breaker | flat until 2026-11-25T14:00:00Z |
 
 ![equity curve](equity.svg)
 
@@ -22,6 +23,7 @@
 
 | Time (UTC) | Side | Qty BTC | Fill price | Notional | Fee | Realised P&L | Reason |
 |---|---|---:|---:|---:|---:|---:|---|
+| 2026-11-23T14:00:00Z | buy | 0.14494 | 63,860.10 | 9,255.88 | 4.63 | 807.76 | circuit breaker |
 | 2026-11-22T10:00:00Z | buy | 0.02119 | 61,141.32 | 1,295.58 | 0.65 | 175.73 | signal |
 | 2026-11-21T04:00:00Z | sell | 0.02586 | 56,723.41 | 1,466.87 | 0.73 | 0.00 | signal |
 | 2026-11-15T02:00:00Z | sell | 0.01899 | 62,606.20 | 1,188.89 | 0.59 | 0.00 | signal |
@@ -30,13 +32,14 @@
 
 ## Events
 
+- `2026-11-23T14:00:00Z` **alert** - circuit breaker: drawdown 10.4% from high-water mark; flat for 48h
 - `2026-11-06T00:47:35Z` **info** - paper run started: lss_breakdown_vol(entry_n=240, exit_n=48, regime_n=3000, floor=0.35, short_risk=0.004), 10,000.00 USDT, 30 days, data via binance_vision
 
 ## Health
 
-- Last tick: 2026-11-23T13:44:01Z (ticks run: 68)
-- Last successful tick: 2026-11-23T13:44:01Z
-- Last closed bar processed: 2026-11-23T13:00:00Z
+- Last tick: 2026-11-24T01:16:02Z (ticks run: 69)
+- Last successful tick: 2026-11-24T01:16:02Z
+- Last closed bar processed: 2026-11-24T01:00:00Z
 - Consecutive failures: 0
 
 Ledgers: [trades.csv](trades.csv) - [trips.csv](trips.csv) - [equity.csv](equity.csv) - [events.jsonl](events.jsonl) - [state.json](state.json)

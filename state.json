@@ -2,56 +2,48 @@
   "created_at": "2026-11-06T00:47:35Z",
   "engine": {
     "avg_cost": 69465.08736334991,
-    "bars_processed": 421,
-    "cash": 20251.901279306305,
+    "bars_processed": 433,
+    "cash": 10991.390112505811,
     "cooldown_until_ms": null,
     "end_ms": 1796515200000,
     "ended": false,
-    "fees_paid": 6.4207962363205064,
+    "fees_paid": 11.048737848914456,
     "funding_paid": -7.8986128693253175,
-    "halt_until_ms": null,
+    "halt_until_ms": 1795615200000,
     "hwm": 12279.458798047119,
-    "in_market_bars": 351,
+    "in_market_bars": 352,
     "initial_equity": 10000.0,
-    "last_close_ms": 1795435200000,
-    "last_equity": 11362.923849506304,
-    "last_open_ms": 1795438800000,
-    "last_price": 61328.67,
-    "last_target": -0.7775545506816343,
-    "max_drawdown": 0.07884721176445963,
+    "last_close_ms": 1795478400000,
+    "last_equity": 10991.390112505811,
+    "last_open_ms": 1795482000000,
+    "last_price": 61333.77,
+    "last_target": 0.0,
+    "max_drawdown": 0.10489620973736702,
     "peak_equity": 12279.458798047119,
     "pending": null,
-    "qty": -0.14494,
-    "realized_pnl": 175.7329039930327,
+    "qty": 0.0,
+    "realized_pnl": 983.4914996364763,
     "rearm_required": false,
     "rearm_side": 1,
     "start_ms": 1793923200000,
     "stop_price": null,
     "stopped": false,
-    "trade_count": 5,
-    "trip": {
-      "basis": 11540.234963673322,
-      "cost": 11551.780971640981,
-      "entry_ms": 1794175200000,
-      "entry_price": 74113.529269,
-      "equity_before": 10000.0,
-      "pnl": 175.7329039930327,
-      "side": "short"
-    }
+    "trade_count": 6,
+    "trip": null
   },
   "health": {
     "consecutive_failures": 0,
     "last_error": null,
-    "last_live_price": 61305.33,
-    "last_live_price_at": "2026-11-23T13:44:01Z",
+    "last_live_price": 61501.99,
+    "last_live_price_at": "2026-11-24T01:16:02Z",
     "last_provider": "binance_vision",
-    "last_success_at": "2026-11-23T13:44:01Z",
-    "last_tick_at": "2026-11-23T13:44:01Z",
-    "ticks": 68
+    "last_success_at": "2026-11-24T01:16:02Z",
+    "last_tick_at": "2026-11-24T01:16:02Z",
+    "ticks": 69
   },
   "notify": {
-    "last_daily_summary": "2026-11-23",
-    "last_daily_summary_at": "2026-11-23T03:40:54Z"
+    "last_daily_summary": "2026-11-24",
+    "last_daily_summary_at": "2026-11-24T01:16:02Z"
   },
   "run": {
     "completed_at": null,
@@ -82,5 +74,5 @@
     "version": "0.1.0"
   },
   "schema_version": 1,
-  "updated_at": "2026-11-23T13:44:01Z"
+  "updated_at": "2026-11-24T01:16:02Z"
 }

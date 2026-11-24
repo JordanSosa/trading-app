@@ -1,0 +1,2 @@
+entry_ms,exit_ms,entry_time,exit_time,side,entry_price,exit_price,pnl,return,exit_reason
+1794175200000,1795442400000,2026-11-08T22:00:00Z,2026-11-23T14:00:00Z,short,74113.529269,63860.10228499999,983.4914996364763,0.08522283148760304,circuit breaker
