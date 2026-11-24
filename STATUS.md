@@ -1,19 +1,19 @@
 # BTC/USDT paper trading - HALTED (circuit breaker)
 
-> **Paper money only. No real orders are placed.** Updated 2026-11-24T11:07:54Z - data source `binance_vision` - run `run-20261106T0047Z`
+> **Paper money only. No real orders are placed.** Updated 2026-11-24T21:22:13Z - data source `binance_vision` - run `run-20261106T0047Z`
 
 | Metric | Value |
 |---|---|
 | Equity | **10,991.39 USDT** (+9.91%) |
 | P&L | 991.39 USDT (realised 983.49, unrealised 0.00) |
-| Buy & hold since start | -21.74% (strategy vs B&H: +31.65%) |
-| BTC price | 59,744.85 (start 76,340.00) |
+| Buy & hold since start | -21.51% (strategy vs B&H: +31.43%) |
+| BTC price | 59,916.85 (start 76,340.00) |
 | Position | flat 0.00000 BTC = 0.00 USDT (0.0% exposure, hybrid) |
 | Cash | 10,991.39 USDT |
 | Max drawdown | 10.49% (current 10.49%) |
 | Fees paid | 11.05 USDT - funding paid -7.90 USDT (negative = received) |
 | Trades / round trips | 6 / 1 (win rate 100%) |
-| Run window | 2026-11-06T00:47:35Z -> 2026-12-06T00:00:00Z (day 18.4 of 30) |
+| Run window | 2026-11-06T00:47:35Z -> 2026-12-06T00:00:00Z (day 18.9 of 30) |
 | Strategy | `lss_breakdown_vol(entry_n=240, exit_n=48, regime_n=3000, floor=0.35, short_risk=0.004)` |
 | Circuit breaker | flat until 2026-11-25T14:00:00Z |
 
@@ -37,9 +37,9 @@
 
 ## Health
 
-- Last tick: 2026-11-24T11:07:54Z (ticks run: 70)
-- Last successful tick: 2026-11-24T11:07:54Z
-- Last closed bar processed: 2026-11-24T11:00:00Z
+- Last tick: 2026-11-24T21:22:13Z (ticks run: 71)
+- Last successful tick: 2026-11-24T21:22:13Z
+- Last closed bar processed: 2026-11-24T21:00:00Z
 - Consecutive failures: 0
 
 Ledgers: [trades.csv](trades.csv) - [trips.csv](trips.csv) - [equity.csv](equity.csv) - [events.jsonl](events.jsonl) - [state.json](state.json)
