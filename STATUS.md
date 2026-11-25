@@ -1,21 +1,20 @@
-# BTC/USDT paper trading - HALTED (circuit breaker)
+# BTC/USDT paper trading - RUNNING
 
-> **Paper money only. No real orders are placed.** Updated 2026-11-25T04:32:22Z - data source `binance_vision` - run `run-20261106T0047Z`
+> **Paper money only. No real orders are placed.** Updated 2026-11-25T14:54:32Z - data source `binance_vision` - run `run-20261106T0047Z`
 
 | Metric | Value |
 |---|---|
 | Equity | **10,991.39 USDT** (+9.91%) |
 | P&L | 991.39 USDT (realised 983.49, unrealised 0.00) |
-| Buy & hold since start | -22.45% (strategy vs B&H: +32.36%) |
-| BTC price | 59,204.01 (start 76,340.00) |
+| Buy & hold since start | -24.33% (strategy vs B&H: +34.24%) |
+| BTC price | 57,769.48 (start 76,340.00) |
 | Position | flat 0.00000 BTC = 0.00 USDT (0.0% exposure, hybrid) |
 | Cash | 10,991.39 USDT |
 | Max drawdown | 10.49% (current 10.49%) |
 | Fees paid | 11.05 USDT - funding paid -7.90 USDT (negative = received) |
 | Trades / round trips | 6 / 1 (win rate 100%) |
-| Run window | 2026-11-06T00:47:35Z -> 2026-12-06T00:00:00Z (day 19.2 of 30) |
+| Run window | 2026-11-06T00:47:35Z -> 2026-12-06T00:00:00Z (day 19.6 of 30) |
 | Strategy | `lss_breakdown_vol(entry_n=240, exit_n=48, regime_n=3000, floor=0.35, short_risk=0.004)` |
-| Circuit breaker | flat until 2026-11-25T14:00:00Z |
 
 ![equity curve](equity.svg)
 
@@ -32,14 +31,15 @@
 
 ## Events
 
+- `2026-11-25T14:00:00Z` **info** - circuit breaker released; trading resumed
 - `2026-11-23T14:00:00Z` **alert** - circuit breaker: drawdown 10.4% from high-water mark; flat for 48h
 - `2026-11-06T00:47:35Z` **info** - paper run started: lss_breakdown_vol(entry_n=240, exit_n=48, regime_n=3000, floor=0.35, short_risk=0.004), 10,000.00 USDT, 30 days, data via binance_vision
 
 ## Health
 
-- Last tick: 2026-11-25T04:32:22Z (ticks run: 72)
-- Last successful tick: 2026-11-25T04:32:22Z
-- Last closed bar processed: 2026-11-25T04:00:00Z
+- Last tick: 2026-11-25T14:54:32Z (ticks run: 73)
+- Last successful tick: 2026-11-25T14:54:32Z
+- Last closed bar processed: 2026-11-25T14:00:00Z
 - Consecutive failures: 0
 
 Ledgers: [trades.csv](trades.csv) - [trips.csv](trips.csv) - [equity.csv](equity.csv) - [events.jsonl](events.jsonl) - [state.json](state.json)
